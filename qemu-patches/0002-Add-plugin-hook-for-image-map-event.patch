@@ -1,0 +1,124 @@
+From 76e969ff65246249456a0ddb597c1eb5c96ef113 Mon Sep 17 00:00:00 2001
+From: Matt Borgerson <contact@mborgerson.com>
+Date: Wed, 17 Nov 2021 00:28:58 -0700
+Subject: [PATCH 2/2] Add plugin hook for image map event
+
+---
+ include/qemu/plugin.h      |  4 ++++
+ include/qemu/qemu-plugin.h | 10 ++++++++++
+ linux-user/elfload.c       |  3 +++
+ plugins/core.c             | 27 +++++++++++++++++++++++++++
+ 4 files changed, 44 insertions(+)
+
+diff --git a/include/qemu/plugin.h b/include/qemu/plugin.h
+index 53eaf48..7e60c3b 100644
+--- a/include/qemu/plugin.h
++++ b/include/qemu/plugin.h
+@@ -27,6 +27,7 @@ enum qemu_plugin_event {
+     QEMU_PLUGIN_EV_FLUSH,
+     QEMU_PLUGIN_EV_ATEXIT,
+     QEMU_PLUGIN_EV_VCPU_USER_WRITE,
++    QEMU_PLUGIN_EV_IMAGE_MAP,
+     QEMU_PLUGIN_EV_MAX, /* total number of plugin events we support */
+ };
+ 
+@@ -58,6 +59,7 @@ union qemu_plugin_cb_sig {
+     qemu_plugin_vcpu_syscall_cb_t    vcpu_syscall;
+     qemu_plugin_vcpu_syscall_ret_cb_t vcpu_syscall_ret;
+     qemu_plugin_vcpu_user_write_cb_t vcpu_user_write;
++    qemu_plugin_image_map_cb_t       image_map;
+     void *generic;
+ };
+ 
+@@ -171,6 +173,8 @@ struct qemu_plugin_insn *qemu_plugin_tb_insn_get(struct qemu_plugin_tb *tb)
+     return insn;
+ }
+ 
++void qemu_plugin_image_map(const char *image_name, uint64_t base);
++
+ void qemu_plugin_vcpu_init_hook(CPUState *cpu);
+ void qemu_plugin_vcpu_exit_hook(CPUState *cpu);
+ void qemu_plugin_tb_trans_cb(CPUState *cpu, struct qemu_plugin_tb *tb);
+diff --git a/include/qemu/qemu-plugin.h b/include/qemu/qemu-plugin.h
+index ecded54..26c1746 100644
+--- a/include/qemu/qemu-plugin.h
++++ b/include/qemu/qemu-plugin.h
+@@ -118,6 +118,13 @@ typedef void (*qemu_plugin_simple_cb_t)(qemu_plugin_id_t id);
+  */
+ typedef void (*qemu_plugin_udata_cb_t)(qemu_plugin_id_t id, void *userdata);
+ 
++/**
++ *
++ */
++typedef void (*qemu_plugin_image_map_cb_t)(qemu_plugin_id_t id,
++                                           const char *image_name,
++                                           uint64_t base);
++
+ /**
+  * typedef qemu_plugin_vcpu_simple_cb_t - vcpu callback
+  * @id: the unique qemu_plugin_id_t
+@@ -577,6 +584,9 @@ void qemu_plugin_vcpu_for_each(qemu_plugin_id_t id,
+ void qemu_plugin_register_flush_cb(qemu_plugin_id_t id,
+                                    qemu_plugin_simple_cb_t cb);
+ 
++void qemu_plugin_register_image_map_cb(qemu_plugin_id_t id,
++                                       qemu_plugin_image_map_cb_t cb);
++
+ /**
+  * qemu_plugin_register_atexit_cb() - register exit callback
+  * @id: plugin ID
+diff --git a/linux-user/elfload.c b/linux-user/elfload.c
+index 01e9a83..3b7c92f 100644
+--- a/linux-user/elfload.c
++++ b/linux-user/elfload.c
+@@ -2775,6 +2775,9 @@ static void load_elf_image(const char *image_name, int image_fd,
+     if (load_addr == -1) {
+         goto exit_mmap;
+     }
++
++    qemu_plugin_image_map(image_name, (uint64_t)load_addr);
++
+     load_bias = load_addr - loaddr;
+ 
+     if (elf_is_fdpic(ehdr)) {
+diff --git a/plugins/core.c b/plugins/core.c
+index 69eb2a5..2bdabb8 100644
+--- a/plugins/core.c
++++ b/plugins/core.c
+@@ -528,6 +528,33 @@ void qemu_plugin_vcpu_mem_cb(CPUState *cpu, uint64_t vaddr, uint32_t info, uint6
+     }
+ }
+ 
++/*
++ * Disable CFI checks.
++ * The callback function has been loaded from an external library so we do not
++ * have type information
++ */
++QEMU_DISABLE_CFI
++void
++qemu_plugin_image_map(const char *image_name, uint64_t base)
++{
++    struct qemu_plugin_cb *cb, *next;
++    enum qemu_plugin_event ev = QEMU_PLUGIN_EV_IMAGE_MAP;
++
++    QLIST_FOREACH_SAFE_RCU(cb, &plugin.cb_lists[ev], entry, next) {
++        qemu_plugin_image_map_cb_t func = cb->f.image_map;
++        func(cb->ctx->id, image_name, base);
++    }
++}
++
++
++void qemu_plugin_register_image_map_cb(qemu_plugin_id_t id,
++                                       qemu_plugin_image_map_cb_t cb)
++{
++    plugin_register_cb(id, QEMU_PLUGIN_EV_IMAGE_MAP, cb);
++}
++
++
++
+ void qemu_plugin_atexit_cb(void)
+ {
+     plugin_cb__udata(QEMU_PLUGIN_EV_ATEXIT);
+-- 
+2.25.1
+

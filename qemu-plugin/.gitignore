@@ -1,0 +1,3 @@
+*.capnp.c++
+*.capnp.h
+*.o
