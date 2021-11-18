@@ -9,8 +9,9 @@ bintrace
 ```bash
 sudo apt install capnproto libcapnp-dev ninja-build
 git clone https://github.com/mborgerson/bintrace
-pip install .
-pip install ./bintrace-qemu
+cd bintrace
+pip install .                      # install bintrace, for trace analysis
+pip install ./bintrace-qemu        # install the bintrace qemu tracer, for trace collection
 bintrace-qemu /usr/bin/uname -a    # produces binary.trace in current dir
 python -m bintrace uname.trace     # print out all events
 ```
