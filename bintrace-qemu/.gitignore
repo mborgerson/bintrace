@@ -1,0 +1,3 @@
+bintrace-qemu/bin/
+qemu-plugin/libtrace.so
+qemu

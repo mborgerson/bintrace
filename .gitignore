@@ -2,6 +2,3 @@
 *.pyc
 *.trace
 __pycache__
-qemu-plugin/libtrace.so
-qemu
-bintrace/bin
