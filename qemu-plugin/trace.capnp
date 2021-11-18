@@ -1,1 +1,0 @@
-../bintrace/trace.capnp

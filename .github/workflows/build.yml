@@ -29,6 +29,7 @@ jobs:
           git config --global user.name 'Tester'
           git config --global user.email 'nobody@nowhere'
           pip install --verbose .
+          pip install --verbose ./bintrace-qemu
           echo -e "\nCompiler Cache Stats:"
           ccache -s -c
       - name: Test

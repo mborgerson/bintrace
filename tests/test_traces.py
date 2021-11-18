@@ -28,7 +28,7 @@ class TraceTest(unittest.TestCase):
         subprocess.run('gcc -o simple_global simple_global.c'.split(), check=True)
 
         _l.info('Collecting trace...')
-        subprocess.run('seq 100 110 | trace ./simple_global > /dev/null', shell=True)
+        subprocess.run('seq 100 110 | bintrace-qemu ./simple_global > /dev/null', shell=True)
 
         cls.tm = TraceManager()
         cls.tm.load_trace('simple_global.trace')

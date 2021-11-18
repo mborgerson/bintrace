@@ -2,7 +2,7 @@
 QEMU_DIR=qemu
 PATCH_DIR=$PWD/qemu-patches
 PLUGIN_DIR=$PWD/qemu-plugin
-DIST_DIR=$PWD/bintrace/bin
+DIST_DIR=$PWD/bintrace-qemu/bin
 TAG="v6.1.0"
 
 if [ ! -d $QEMU_DIR ]; then
@@ -16,12 +16,13 @@ if [ ! -d $QEMU_DIR ]; then
 	echo "[*] Applying patches"
 	git am $PATCH_DIR/*.patch
 
-	echo "[*] Building QEMU..."
+	echo "[*] Configuring QEMU..."
 	./configure --target-list=x86_64-linux-user --enable-plugins
 
 	popd
 fi
 
+echo "[*] Building QEMU..."
 pushd $QEMU_DIR
 make -j$(nproc) qemu-x86_64
 popd
@@ -30,5 +31,5 @@ echo "[*] Building tracer plugin"
 make -C $PLUGIN_DIR
 
 mkdir -p $DIST_DIR
-cp $QEMU_DIR/build/qemu-x86_64 $DIST_DIR/qemutracer-qemu-x86_64
-cp $PLUGIN_DIR/libtrace.so $DIST_DIR
+cp $QEMU_DIR/build/qemu-x86_64 $DIST_DIR/bintrace-qemu-x86_64
+cp $PLUGIN_DIR/libtrace.so     $DIST_DIR

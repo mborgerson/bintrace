@@ -1,11 +1,3 @@
-# -*- Mode: makefile -*-
-#
-# This Makefile example is fairly independent from the main makefile
-# so users can take and adapt it for their build. We only really
-# include config-host.mak so we don't have to repeat probing for
-# cflags that the main configure has already done for us.
-#
-
 SRC_PATH := $(CURDIR)/../qemu/
 BUILD_DIR := $(SRC_PATH)/build
 
@@ -28,6 +20,9 @@ CFLAGS += -I$(SRC_PATH)/include/qemu
 CFLAGS += $(shell pkg-config --cflags capnp)
 LDLIBS += $(shell pkg-config --libs capnp)
 
+BINTRACE_DIR = $(shell python -c "import os.path as o, importlib.util as i; print(o.dirname(i.find_spec('bintrace').origin))")
+BINTRACE_PROTO = $(BINTRACE_DIR)/trace.capnp
+
 all: $(SONAMES)
 
 trace.o: trace.cpp trace.capnp.c++
@@ -36,8 +31,8 @@ trace.o: trace.cpp trace.capnp.c++
 lib%.so: %.o
 	$(CXX) -shared -Wl,-soname,$@ -o $@ $^ $(LDLIBS)
 
-%.capnp.h, %.capnp.c++: %.capnp
-	capnp compile -oc++ $<
+trace.capnp.h, trace.capnp.c++: $(BINTRACE_PROTO)
+	capnp compile -oc++ --src-prefix=$(BINTRACE_DIR) $<
 
 clean:
 	rm -f *.o *.so *.d
