@@ -110,7 +110,7 @@ class TraceTest(unittest.TestCase):
         ss = d.simstate
         self.assertEqual(ss.solver.eval(ss.stack_read(0, 8)), disas.address + disas.size)
 
-    def tset_angr_breakpoint_and_load_global_value_from_simstate(self):
+    def test_angr_breakpoint_and_load_global_value_from_simstate(self):
         d = AngrTraceDebugger(self.tm)
         values = []
         d.add_breakpoint(self.syms['loop_bottom'])
