@@ -81,7 +81,7 @@ class TraceTest(unittest.TestCase):
     # Test angr Trace Debugger
     #
 
-    def test_angr_trace_debugger(self):
+    def test_angr_libc_call_recovery(self):
         d = AngrTraceDebugger(self.tm)
         expected_addr = None
         for sev in self.tm.filter_store(self.syms['global_value']):
@@ -110,6 +110,7 @@ class TraceTest(unittest.TestCase):
         ss = d.simstate
         self.assertEqual(ss.solver.eval(ss.stack_read(0, 8)), disas.address + disas.size)
 
+    def tset_angr_breakpoint_and_load_global_value_from_simstate(self):
         d = AngrTraceDebugger(self.tm)
         values = []
         d.add_breakpoint(self.syms['loop_bottom'])
