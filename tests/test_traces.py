@@ -66,6 +66,17 @@ class TraceTest(unittest.TestCase):
             d.continue_forward()
         self.assertEqual(values, list(range(100, 110)))
 
+    def test_breakpoint_reverse(self):
+        d = TraceDebugger(self.tm)
+        d.continue_forward()
+        d.add_breakpoint(self.syms['loop_bottom'])
+        values = []
+        d.continue_backward()
+        while not self.tm.is_at_start(d.state):
+            values.append(d.state.get_int(self.syms["global_value"], 4))
+            d.continue_backward()
+        self.assertEqual(values, list(range(109,99,-1)))
+
     #
     # Test angr Trace Debugger
     #
