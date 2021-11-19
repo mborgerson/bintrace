@@ -11,8 +11,8 @@ sudo apt install capnproto libcapnp-dev ninja-build
 git clone https://github.com/mborgerson/bintrace
 cd bintrace
 pip install .                      # install bintrace, for trace analysis
-pip install ./bintrace-qemu        # install the bintrace qemu tracer, for trace collection
-bintrace-qemu /usr/bin/uname -a    # produces binary.trace in current dir
+pip install ./bintrace-qemu        # install bintrace qemu tracer, for trace collection
+bintrace-qemu /usr/bin/uname -a    # produces uname.trace in current dir
 python -m bintrace uname.trace     # print out all events
 ```
 
