@@ -13,7 +13,7 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt install capnproto libcapnp-dev ninja-build ccache
-          pip install angr
+          pip install angr pylint
       - name: Initialize compiler cache
         id: cache
         uses: actions/cache@v2
@@ -21,6 +21,10 @@ jobs:
           path: /tmp/ccache
           key: cache-${{ github.sha }}
           restore-keys: cache-
+      - name: Lint
+        run: |
+          wget https://raw.githubusercontent.com/angr/angr-dev/master/pylintrc
+          pylint --rcfile=pylintrc ./bintrace
       - name: Install
         run: |
           export CCACHE_DIR=/tmp/ccache
