@@ -33,7 +33,7 @@ class TraceDebugger:
         Get most recent event that should cause reverse execution to stop (e.g. breakpoints).
         """
         stop_events = set()
-        assert(self.state.event is not None)
+        assert self.state.event is not None
         for addr in self.breakpoints:
             e = self._tm.get_prev_exec_event(self.state.event, addr)
             if e is not None:

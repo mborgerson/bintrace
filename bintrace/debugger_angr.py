@@ -1,8 +1,9 @@
 from typing import Optional
-import pyvex
 import logging
-import angr
 import os.path
+
+import pyvex
+import angr
 from angr.engines import HeavyVEXMixin, SimInspectMixin
 from angr.engines.engine import SuccessorsMixin
 from angr.engines.procedure import ProcedureMixin
@@ -13,8 +14,27 @@ from .debugger import TraceDebugger
 _l = logging.getLogger(name=__name__)
 
 
+def get_contiguous_range(f):
+    start, i = None, 0
+    for k in sorted(f):
+        if start is None:
+            start, i = k, 1
+        elif k == (start + i):
+            i += 1
+        else:
+            yield (start, i)
+            start, i = k, 1
+    if i > 0:
+        yield (start, i)
+
+
+# FIXME: Tests for syscall. Needs engine fixes for proper support.
 #pylint:disable=abstract-method,arguments-differ
 class NoSyscallEffectMixin(SuccessorsMixin, ProcedureMixin):
+    """
+    Helper for block state recovery.
+    """
+
     def process_successors(self, successors, **kwargs):
         state = self.state
         # we have at this point entered the next step so we need to check the previous jumpkind
@@ -22,12 +42,14 @@ class NoSyscallEffectMixin(SuccessorsMixin, ProcedureMixin):
             or not state.history.parent
             or not state.history.parent.jumpkind
             or not state.history.parent.jumpkind.startswith('Ijk_Sys')):
-            return super().process_successors(successors, **kwargs)
+            super().process_successors(successors, **kwargs)
         successors.processed = True
 
 
 class InspectEngine(NoSyscallEffectMixin, SimInspectMixin, HeavyVEXMixin):
-    pass
+    """
+    Helper for block state recovery.
+    """
 
 
 class AngrTraceDebugger(TraceDebugger):
@@ -68,7 +90,7 @@ class AngrTraceDebugger(TraceDebugger):
             return None
 
         bb = self._tm.get_prev_bb_event(self.state.event)
-        _l.info('Rewind to last BB ' + str(bb))
+        _l.info('Rewind to last BB event %s', bb)
         state = self.state.snapshot()
         state = self._tm.replay(state, bb)
 
@@ -88,25 +110,14 @@ class AngrTraceDebugger(TraceDebugger):
         # Slow memory store to state
         # FIXME: replace with faster, no-copy version...
         simstate = self.project.factory.blank_state()
-        def get_contiguous_range(f):
-            start, i = None, 0
-            for k in sorted(f):
-                if start is None:
-                    start, i = k, 1
-                elif k == (start + i):
-                    i += 1
-                else:
-                    yield (start, i)
-                    start, i = k, 1
-            if i > 0:
-                yield (start, i)
         for addr,size in get_contiguous_range(state.mem.keys()):
             simstate.memory.store(addr, bytes(state.mem[i] for i in range(addr, addr+size)))
 
         # FIXME: Some registers are not modeled here (e.g. FS), so execution may be incorrect
         #        Need to model rflags
         # FIXME: Should determine register list from arch structure (it maps GDB's listing)
-        dregs = ('rax', 'rbx', 'rcx', 'rdx', 'rsi', 'rdi', 'rbp', 'rsp', 'r8', 'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15', 'pc', 'eflags')
+        dregs = ('rax', 'rbx', 'rcx', 'rdx', 'rsi', 'rdi', 'rbp', 'rsp', 'r8',
+                 'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15', 'pc', 'eflags')
         for i, name in enumerate(dregs):
             setattr(simstate.regs, name, bb.regs[i])
 
@@ -118,9 +129,9 @@ class AngrTraceDebugger(TraceDebugger):
         # Gather all loads executed by each instruction, and write them just in
         # time to state memory before executing the instruction.
         def before_insn_exec(state):
-            _l.info('Executing @ ' + str(state.regs.pc))
+            _l.info('Executing @ %s', state.regs.pc)
             for event in load_events[state.solver.eval(state.regs.pc)]:
-                _l.info('   -> ' + str(event))
+                _l.info('   -> %s', event)
                 state.memory.store(event.addr, event.value, size=event.size)
 
         simstate.inspect.b('instruction', when=angr.BP_BEFORE, action=before_insn_exec)
@@ -139,7 +150,7 @@ class AngrTraceDebugger(TraceDebugger):
         _l.info('Block Instructions:')
         insn_data = b''
         for insn in insns:
-            _l.info(' - ' + str(insn))
+            _l.info(' - %s', insn)
             insn_data += insn.ibytes
 
         _l.info('Lifting Block:')
@@ -148,12 +159,13 @@ class AngrTraceDebugger(TraceDebugger):
 
         # XXX: We are executing w/ Vex engine, but it might as well be Unicorn.
         #      It's typically only a handful of instructions.
-        _l.info('Executing @ ' + str(simstate.regs.pc))
-        _l.info('Executing up to ' + str(self.state.event))
+        _l.info('Executing @ %s', simstate.regs.pc)
+        _l.info('Executing up to %s', self.state.event)
         sim_successors = InspectEngine(None).process(simstate, irsb=irsb)
         if len(sim_successors.successors) != 1:
-            _l.warning('!!! Unexpected number of successors: %d (%d total)' % (len(sim_successors.successors), len(sim_successors.all_successors)))
+            _l.warning('!!! Unexpected number of successors: %d (%d total)',
+                       len(sim_successors.successors), len(sim_successors.all_successors))
             for s in sim_successors.all_successors:
-                _l.info('--> ' + str(s) + ('(unsat)' if s in sim_successors.unsat_successors else ''))
+                _l.info('--> %s %s', s, '(unsat)' if s in sim_successors.unsat_successors else '')
 
         return sim_successors.all_successors[0]

@@ -4,14 +4,12 @@ from typing import Union, Mapping, Sequence, Optional
 from collections import defaultdict
 import os.path
 import logging
-
+import capnp
 
 _l = logging.getLogger(name=__name__)
-_l.debug('Loading capnp protocol')
-import capnp
-capnp.remove_import_hook()
+capnp.remove_import_hook()  # pylint:disable=no-member
 proto_path = os.path.join(os.path.dirname(__file__), 'trace.capnp')
-proto_capnp = capnp.load(proto_path)
+proto_capnp = capnp.load(proto_path)  # pylint:disable=no-member
 
 
 class TraceEvent:
@@ -127,7 +125,7 @@ class SyscallEvent(TraceEvent):
 
     __slots__ = ('vcpu', 'num')
 
-    def __init__(self, vcpu: int, num: int, *vargs):
+    def __init__(self, vcpu: int, num: int):
         super().__init__()
         self.vcpu: int = vcpu
         self.num: int = num
@@ -159,7 +157,7 @@ class TraceStartEvent(TraceEvent):
     """
 
     def __repr__(self):
-        return f'<TraceStartEvent>'
+        return '<TraceStartEvent>'
 
 
 class TraceEndEvent(TraceEvent):
@@ -168,7 +166,7 @@ class TraceEndEvent(TraceEvent):
     """
 
     def __repr__(self):
-        return f'<TraceEndEvent>'
+        return '<TraceEndEvent>'
 
 
 class MemoryState:
@@ -180,12 +178,12 @@ class MemoryState:
         self.mem = mem or defaultdict(int)  # FIXME: Default dict should return INVALID byte by default.
         self.event: TraceEvent = event  # Event that this state reflects all changes up to, but not including
 
-    def set_bytes(self, addr: int, bytes: bytes):
+    def set_bytes(self, addr: int, data: bytes):
         """
         Store a bytestring.
         """
-        for i in range(addr, addr+len(bytes)):
-            self.mem[i] = bytes[i-addr]
+        for i in range(addr, addr+len(data)):
+            self.mem[i] = data[i-addr]
 
     def set_int(self, addr: int, size: int, val: int):
         """
@@ -252,11 +250,16 @@ class TraceManager:
     def _add_memoryEvent(self, bev):
         bev = bev.memoryEvent
         t = bev.which()
-        if   t == 'bytes': v, s = bev.bytes, len(bev.bytes)
-        elif t == 'ui8':   v, s = bev.ui8,   1
-        elif t == 'ui16':  v, s = bev.ui16,  2
-        elif t == 'ui32':  v, s = bev.ui32,  4
-        elif t == 'ui64':  v, s = bev.ui64,  8
+        if t == 'bytes':
+            v, s = bev.bytes, len(bev.bytes)
+        elif t == 'ui8':
+            v, s = bev.ui8, 1
+        elif t == 'ui16':
+            v, s = bev.ui16, 2
+        elif t == 'ui32':
+            v, s = bev.ui32, 4
+        elif t == 'ui64':
+            v, s = bev.ui64, 8
         else:
             assert False
 
@@ -316,6 +319,7 @@ class TraceManager:
         state = MemoryState()
         for event in self.trace:
             if isinstance(event, StoreEvent):
+                event: StoreEvent  # XXX: Fix pylint incorrect type inference
                 event.value_inv = state.get_bytes(event.addr, event.size)
                 state.set(event.addr, event.size, event.value)
 
@@ -395,8 +399,8 @@ class TraceManager:
         start_event = state.event or self.trace[0]
         start_index = start_event.eid
         reverse = state and state.event and until and until.eid < state.event.eid
-        _l.info(f'Replaying from {str(start_event)} ({start_index}) until {str(until)} ({until.eid})' + (
-                ' (Reversed)' if reverse else ''))
+        _l.info('Replaying from %s (%d) until %s (%d)%s', start_event, start_index, until, until.eid,
+                ' (Reversed)' if reverse else '')
 
         if reverse:
             # Apply the inverse effects of each event, *including* stop event

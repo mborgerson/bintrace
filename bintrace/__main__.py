@@ -1,18 +1,15 @@
-import logging
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.DEBUG)
-
-import code
-import os.path
-from argparse import ArgumentParser
-from bintrace import TraceManager, ImageMapEvent
-from bintrace.debugger import TraceDebugger
-
 try:
     import angr
-    from bintrace.debugger_angr import AngrTraceDebugger
 except ImportError:
     angr = None
+
+import logging
+import code
+from argparse import ArgumentParser
+from bintrace import TraceManager
+from bintrace.debugger import TraceDebugger
+if angr is not None:
+    from bintrace.debugger_angr import AngrTraceDebugger
 
 try:
     import IPython
@@ -33,13 +30,13 @@ def main():
 
     if args.interactive:
         if angr is None:
-            _l.info('angr is not installed, creating basic debugger')
-            d = TraceDebugger(tm)
+            _l.warning('angr is not installed, creating basic debugger')
+            d = TraceDebugger(tm)  # pylint:disable=unused-variable
         else:
-            d = AngrTraceDebugger(tm)
+            d = AngrTraceDebugger(tm)  # pylint:disable=unused-variable
 
         if IPython is None:
-            _l.info('IPython is not installed, using standard interactive console')
+            _l.warning('IPython is not installed, using standard interactive console')
             code.interact()
         else:
             IPython.embed()
