@@ -21,10 +21,6 @@ jobs:
           path: /tmp/ccache
           key: cache-${{ github.sha }}
           restore-keys: cache-
-      - name: Lint
-        run: |
-          wget https://raw.githubusercontent.com/angr/angr-dev/master/pylintrc
-          pylint --rcfile=pylintrc ./bintrace
       - name: Install
         run: |
           export CCACHE_DIR=/tmp/ccache
@@ -36,6 +32,10 @@ jobs:
           pip install --verbose ./bintrace-qemu
           echo -e "\nCompiler Cache Stats:"
           ccache -s -c
+      - name: Lint
+        run: |
+          wget https://raw.githubusercontent.com/angr/angr-dev/master/pylintrc
+          pylint --rcfile=pylintrc ./bintrace
       - name: Test
         run: |
           cd tests
