@@ -26,15 +26,17 @@ class ImageMapEvent(TraceEvent):
     Image map event.
     """
 
-    __slots__ = ('name', 'addr')
+    __slots__ = ('name', 'offset', 'addr', 'size')
 
-    def __init__(self, name: str, addr: int):
+    def __init__(self, name: str, offset: int, addr: int, size: int):
         super().__init__()
         self.name = name
+        self.offset = offset
         self.addr = addr
+        self.size = size
 
     def __repr__(self):
-        return f'<ImageMap name="{self.name}" base={self.addr:#x}>'
+        return f'<ImageMap name="{self.name}" offset={self.offset:#x} base={self.addr:#x} size={self.size:#x}>'
 
 
 class BlockEvent(TraceEvent):
@@ -231,7 +233,7 @@ class TraceManager:
 
     def _add_imageMapEvent(self, bev):
         bev = bev.imageMapEvent
-        e = ImageMapEvent(bev.name, bev.base)
+        e = ImageMapEvent(bev.name, bev.offset, bev.base, bev.len)
         e.eid = len(self.trace)
         self.trace.append(e)
 

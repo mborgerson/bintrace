@@ -36,7 +36,7 @@ static void vcpu_insn_exec(unsigned int cpu_index, void *udata);
 static void vcpu_tb_exec(unsigned int cpu_index, void *udata);
 static void vcpu_tb_trans(qemu_plugin_id_t id, struct qemu_plugin_tb *tb);
 static void plugin_exit(qemu_plugin_id_t id, void *p);
-static void image_map_cb(qemu_plugin_id_t id, const char *image_name, uint64_t base);
+static void image_map_cb(qemu_plugin_id_t id, const char *image_name, uint64_t offset, uint64_t base, uint64_t len);
 };
 
 static void vcpu_user_write(qemu_plugin_id_t id, unsigned int vcpu_idx,
@@ -183,12 +183,14 @@ static void plugin_exit(qemu_plugin_id_t id, void *p)
 {
 }
 
-static void image_map_cb(qemu_plugin_id_t id, const char *image_name, uint64_t base)
+static void image_map_cb(qemu_plugin_id_t id, const char *image_name, uint64_t offset, uint64_t base, uint64_t len)
 {
     ::capnp::MallocMessageBuilder msg;
     auto ev = msg.initRoot<Event>().initImageMapEvent();
     ev.setName(image_name);
+    ev.setOffset(offset);
     ev.setBase(base);
+    ev.setLen(len);
     output_message(msg);
 }
 

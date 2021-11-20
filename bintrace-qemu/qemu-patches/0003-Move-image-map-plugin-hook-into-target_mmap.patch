@@ -1,0 +1,99 @@
+From dac70b87c683e06d0ed8e42e3b29a10f0b5fb552 Mon Sep 17 00:00:00 2001
+From: Matt Borgerson <contact@mborgerson.com>
+Date: Fri, 19 Nov 2021 18:43:28 -0700
+Subject: [PATCH 3/3] Move image map plugin hook into target_mmap
+
+---
+ include/qemu/plugin.h      |  2 +-
+ include/qemu/qemu-plugin.h |  2 +-
+ linux-user/elfload.c       |  2 --
+ linux-user/mmap.c          | 11 +++++++++++
+ plugins/core.c             |  5 ++---
+ 5 files changed, 15 insertions(+), 7 deletions(-)
+
+diff --git a/include/qemu/plugin.h b/include/qemu/plugin.h
+index 7e60c3b..598ff09 100644
+--- a/include/qemu/plugin.h
++++ b/include/qemu/plugin.h
+@@ -173,7 +173,7 @@ struct qemu_plugin_insn *qemu_plugin_tb_insn_get(struct qemu_plugin_tb *tb)
+     return insn;
+ }
+ 
+-void qemu_plugin_image_map(const char *image_name, uint64_t base);
++void qemu_plugin_image_map(const char *image_name, uint64_t offset, uint64_t base, uint64_t len);
+ 
+ void qemu_plugin_vcpu_init_hook(CPUState *cpu);
+ void qemu_plugin_vcpu_exit_hook(CPUState *cpu);
+diff --git a/include/qemu/qemu-plugin.h b/include/qemu/qemu-plugin.h
+index 26c1746..3b3960c 100644
+--- a/include/qemu/qemu-plugin.h
++++ b/include/qemu/qemu-plugin.h
+@@ -123,7 +123,7 @@ typedef void (*qemu_plugin_udata_cb_t)(qemu_plugin_id_t id, void *userdata);
+  */
+ typedef void (*qemu_plugin_image_map_cb_t)(qemu_plugin_id_t id,
+                                            const char *image_name,
+-                                           uint64_t base);
++                                           uint64_t offset, uint64_t base, uint64_t len);
+ 
+ /**
+  * typedef qemu_plugin_vcpu_simple_cb_t - vcpu callback
+diff --git a/linux-user/elfload.c b/linux-user/elfload.c
+index 3b7c92f..73ba438 100644
+--- a/linux-user/elfload.c
++++ b/linux-user/elfload.c
+@@ -2776,8 +2776,6 @@ static void load_elf_image(const char *image_name, int image_fd,
+         goto exit_mmap;
+     }
+ 
+-    qemu_plugin_image_map(image_name, (uint64_t)load_addr);
+-
+     load_bias = load_addr - loaddr;
+ 
+     if (elf_is_fdpic(ehdr)) {
+diff --git a/linux-user/mmap.c b/linux-user/mmap.c
+index 0e10385..a095716 100644
+--- a/linux-user/mmap.c
++++ b/linux-user/mmap.c
+@@ -631,6 +631,17 @@ abi_long target_mmap(abi_ulong start, abi_ulong len, int target_prot,
+         log_page_dump(__func__);
+     }
+     tb_invalidate_phys_range(start, start + len);
++
++    if (!(flags & MAP_ANONYMOUS)) {
++        char path[2048];
++        char *fd_path = g_strdup_printf("/proc/self/fd/%d", fd);
++        ssize_t s = readlink(fd_path, path, sizeof(path)-1);
++        g_free(fd_path);
++        path[s < 0 ? 0 : s] = '\x00';
++        // fprintf(stderr, "file %d (%s), offset %zx is mapped to %lx+%lx\n",
++        //         fd, path, offset, start, len);
++        qemu_plugin_image_map(path, offset, start, len);
++    }
+     mmap_unlock();
+     return start;
+ fail:
+diff --git a/plugins/core.c b/plugins/core.c
+index 2bdabb8..205819b 100644
+--- a/plugins/core.c
++++ b/plugins/core.c
+@@ -534,15 +534,14 @@ void qemu_plugin_vcpu_mem_cb(CPUState *cpu, uint64_t vaddr, uint32_t info, uint6
+  * have type information
+  */
+ QEMU_DISABLE_CFI
+-void
+-qemu_plugin_image_map(const char *image_name, uint64_t base)
++void qemu_plugin_image_map(const char *image_name, uint64_t offset, uint64_t base, uint64_t len)
+ {
+     struct qemu_plugin_cb *cb, *next;
+     enum qemu_plugin_event ev = QEMU_PLUGIN_EV_IMAGE_MAP;
+ 
+     QLIST_FOREACH_SAFE_RCU(cb, &plugin.cb_lists[ev], entry, next) {
+         qemu_plugin_image_map_cb_t func = cb->f.image_map;
+-        func(cb->ctx->id, image_name, base);
++        func(cb->ctx->id, image_name, offset, base, len);
+     }
+ }
+ 
+-- 
+2.25.1
+

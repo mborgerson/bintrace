@@ -1,8 +1,10 @@
 @0xae3c84404bd9bf8e;
 
 struct ImageMapEvent {
-  name @0: Text;
-  base @1: UInt64;
+  name   @0: Text;
+  offset @1: UInt64;
+  base   @2: UInt64;
+  len    @3: UInt64;
 }
 
 struct BlockEvent {

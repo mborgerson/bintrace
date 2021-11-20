@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing import Optional
 import logging
 import os.path
@@ -64,11 +65,25 @@ class AngrTraceDebugger(TraceDebugger):
             _l.info('Creating project from mapped images in trace')
             mappings = [e for e in tm.trace if isinstance(e, ImageMapEvent)]
             main_binary = mappings[0]
+
             libs = mappings[1:] if len(mappings) > 1 else []
+            lib_map = defaultdict(list)
+            for lib in libs:
+                lib_map[lib.name].append(lib)
+            for name in list(lib_map.keys()):
+                if name in (main_binary.name, '/etc/ld.so.cache'):
+                    lib_map.pop(name)
+                elif not os.path.exists(os.path.realpath(name)):
+                    _l.warning('Could not find binary %s', name)
+                    lib_map.pop(name)
+                else:
+                    # XXX: We simply take the lowest address as image base. Possibly failure.
+                    lib_map[name] = min(lib_map[name], key=lambda l: l.addr)
+
             ld_opts = {'main_opts': {'base_addr': main_binary.addr},
                        'auto_load_libs': False,
-                       'force_load_libs': [os.path.realpath(lib.name) for lib in libs],
-                       'lib_opts': {os.path.realpath(lib.name): {'base_addr': lib.addr} for lib in libs},
+                       'force_load_libs': [os.path.realpath(name) for name in lib_map],
+                       'lib_opts': {os.path.realpath(name): {'base_addr': lib.addr} for name, lib in lib_map.items()},
             }
             project = angr.Project(main_binary.name, load_options=ld_opts)
 

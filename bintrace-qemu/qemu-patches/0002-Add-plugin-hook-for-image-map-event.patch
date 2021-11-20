@@ -1,7 +1,7 @@
-From 76e969ff65246249456a0ddb597c1eb5c96ef113 Mon Sep 17 00:00:00 2001
+From e7eb18e6c6ab09a4b1e7f6d9316862087812a1e2 Mon Sep 17 00:00:00 2001
 From: Matt Borgerson <contact@mborgerson.com>
 Date: Wed, 17 Nov 2021 00:28:58 -0700
-Subject: [PATCH 2/2] Add plugin hook for image map event
+Subject: [PATCH 2/3] Add plugin hook for image map event
 
 ---
  include/qemu/plugin.h      |  4 ++++
