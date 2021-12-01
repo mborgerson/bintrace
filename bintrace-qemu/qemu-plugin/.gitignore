@@ -1,3 +1,4 @@
 *.capnp.c++
 *.capnp.h
 *.o
+trace_generated.h

@@ -8,7 +8,7 @@ from bintrace import TraceManager, ImageMapEvent, InsnEvent
 from bintrace.debugger import TraceDebugger
 from bintrace.debugger_angr import AngrTraceDebugger
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 _l = logging.getLogger(__name__)
 
 
@@ -32,8 +32,7 @@ class TraceTest(unittest.TestCase):
 
         cls.tm = TraceManager()
         cls.tm.load_trace('simple_global.trace')
-        mappings = [e for e in cls.tm.trace if isinstance(e, ImageMapEvent)]
-        cls.syms = get_symbols('simple_global', mappings[0].addr)
+        cls.syms = get_symbols('simple_global', next(cls.tm.filter_image_map()).Base())
 
     #
     # Test Trace Manager
@@ -88,17 +87,22 @@ class TraceTest(unittest.TestCase):
             # Step back through trace to last instruction executed within text segment of target binary
             mo = d.project.loader.main_object.sections_map['.text']
             e = None
-            for i in range(sev.eid - 1, -1, -1):
-                e = self.tm.trace[i]
-                if isinstance(e, InsnEvent) and mo.min_addr <= e.addr <= mo.max_addr:
+            def iter_backwards(start):
+                ev = start
+                while ev:
+                    yield ev
+                    ev = self.tm.get_prev_event(ev)
+            # FIXME: Provide native filtered version for address in range
+            for e in iter_backwards(sev):
+                if isinstance(e, InsnEvent) and mo.min_addr <= e.Addr() <= mo.max_addr:
                     break
             self.assertIsNotNone(e)
 
             # Check address (it should be written only from one call to scanf)
             if expected_addr is None:
-                expected_addr = e.addr
+                expected_addr = e.Addr()
             else:
-                self.assertEqual(expected_addr, e.addr)
+                self.assertEqual(expected_addr, e.Addr())
 
         # Check block disassembly
         d.state = self.tm.replay(d.state, e)

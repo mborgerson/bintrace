@@ -9,24 +9,10 @@ from angr.engines import HeavyVEXMixin, SimInspectMixin
 from angr.engines.engine import SuccessorsMixin
 from angr.engines.procedure import ProcedureMixin
 
-from .tracemgr import TraceManager, InsnEvent, LoadEvent, SyscallRetEvent, ImageMapEvent
+from .tracemgr import TraceManager, InsnEvent, MemoryEvent, SyscallRetEvent
 from .debugger import TraceDebugger
 
 _l = logging.getLogger(name=__name__)
-
-
-def get_contiguous_range(f):
-    start, i = None, 0
-    for k in sorted(f):
-        if start is None:
-            start, i = k, 1
-        elif k == (start + i):
-            i += 1
-        else:
-            yield (start, i)
-            start, i = k, 1
-    if i > 0:
-        yield (start, i)
 
 
 # FIXME: Tests for syscall. Needs engine fixes for proper support.
@@ -63,29 +49,29 @@ class AngrTraceDebugger(TraceDebugger):
 
         if project is None:
             _l.info('Creating project from mapped images in trace')
-            mappings = [e for e in tm.trace if isinstance(e, ImageMapEvent)]
+            mappings = list(tm.filter_image_map())
             main_binary = mappings[0]
 
             libs = mappings[1:] if len(mappings) > 1 else []
             lib_map = defaultdict(list)
             for lib in libs:
-                lib_map[lib.name].append(lib)
+                lib_map[lib.Name().decode('utf-8')].append(lib)
             for name in list(lib_map.keys()):
-                if name in (main_binary.name, '/etc/ld.so.cache'):
+                if name in (main_binary.Name().decode('utf-8'), '/etc/ld.so.cache'):
                     lib_map.pop(name)
                 elif not os.path.exists(os.path.realpath(name)):
                     _l.warning('Could not find binary %s', name)
                     lib_map.pop(name)
                 else:
                     # XXX: We simply take the lowest address as image base. Possibly failure.
-                    lib_map[name] = min(lib_map[name], key=lambda l: l.addr)
+                    lib_map[name] = min(lib_map[name], key=lambda l: l.Base())
 
-            ld_opts = {'main_opts': {'base_addr': main_binary.addr},
+            ld_opts = {'main_opts': {'base_addr': main_binary.Base()},
                        'auto_load_libs': False,
                        'force_load_libs': [os.path.realpath(name) for name in lib_map],
-                       'lib_opts': {os.path.realpath(name): {'base_addr': lib.addr} for name, lib in lib_map.items()},
+                       'lib_opts': {os.path.realpath(name): {'base_addr': lib.Base()} for name, lib in lib_map.items()},
             }
-            project = angr.Project(main_binary.name, load_options=ld_opts)
+            project = angr.Project(main_binary.Name().decode('utf-8'), load_options=ld_opts)
 
         self.project: angr.Project = project
 
@@ -112,12 +98,19 @@ class AngrTraceDebugger(TraceDebugger):
         load_events = {}
         syscall_events = {}
         last_insn = None
-        for event in self._tm.trace[bb.eid:self.state.event.eid+1]:
+
+        def range_events(start, until):
+            ev = start
+            while ev is not None and ev.handle < until.handle:
+                yield ev
+                ev = self._tm.get_next_event(ev)
+
+        for event in range_events(bb, self.state.event):#self._tm.get_next_event(self.state.event)):
             _l.info(event)
             if isinstance(event, InsnEvent):
-                last_insn = event.addr
+                last_insn = event.Addr()
                 load_events[last_insn] = []
-            elif isinstance(event, LoadEvent):
+            elif isinstance(event, MemoryEvent) and not event.IsStore():
                 load_events[last_insn].append(event)
             elif isinstance(event, SyscallRetEvent):
                 syscall_events[last_insn] = event
@@ -125,8 +118,8 @@ class AngrTraceDebugger(TraceDebugger):
         # Slow memory store to state
         # FIXME: replace with faster, no-copy version...
         simstate = self.project.factory.blank_state()
-        for addr,size in get_contiguous_range(state.mem.keys()):
-            simstate.memory.store(addr, bytes(state.mem[i] for i in range(addr, addr+size)))
+        for addr,size in state.get_contiguous_ranges():
+            simstate.memory.store(addr, state.get_bytes(addr, size))
 
         # FIXME: Some registers are not modeled here (e.g. FS), so execution may be incorrect
         #        Need to model rflags
@@ -134,10 +127,10 @@ class AngrTraceDebugger(TraceDebugger):
         dregs = ('rax', 'rbx', 'rcx', 'rdx', 'rsi', 'rdi', 'rbp', 'rsp', 'r8',
                  'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15', 'pc', 'eflags')
         for i, name in enumerate(dregs):
-            setattr(simstate.regs, name, bb.regs[i])
+            setattr(simstate.regs, name, bb.Regs(i))
 
         simstate.regs.cc_op = 0 # Copy
-        simstate.regs.cc_dep1 = bb.regs[17]
+        simstate.regs.cc_dep1 = bb.Regs(17)
         simstate.regs.cc_dep2 = 0
         simstate.regs.cc_ndep = 0
 
@@ -147,7 +140,7 @@ class AngrTraceDebugger(TraceDebugger):
             _l.info('Executing @ %s', state.regs.pc)
             for event in load_events[state.solver.eval(state.regs.pc)]:
                 _l.info('   -> %s', event)
-                state.memory.store(event.addr, event.value, size=event.size)
+                state.memory.store(event.Addr(), event.Value(), size=(1<<event.Size()))
 
         simstate.inspect.b('instruction', when=angr.BP_BEFORE, action=before_insn_exec)
 
@@ -158,7 +151,7 @@ class AngrTraceDebugger(TraceDebugger):
                 state.regs.rax = syscall_events[pc].ret
         simstate.inspect.b('instruction', when=angr.BP_BEFORE, action=update_syscall_state)
 
-        insns = [e for e in self._tm.trace[bb.eid:self.state.event.eid] if isinstance(e, InsnEvent)]
+        insns = [e for e in range_events(bb, self.state.event) if isinstance(e, InsnEvent)]
         if len(insns) == 0:
             return simstate
 
@@ -166,10 +159,10 @@ class AngrTraceDebugger(TraceDebugger):
         insn_data = b''
         for insn in insns:
             _l.info(' - %s', insn)
-            insn_data += insn.ibytes
+            insn_data += bytes(insn.Bytes(i) for i in range(insn.BytesLength()))
 
         _l.info('Lifting Block:')
-        irsb = pyvex.IRSB(insn_data, bb.addr, self.project.arch)
+        irsb = pyvex.IRSB(insn_data, bb.Addr(), self.project.arch)
         _l.info('%s', irsb)
 
         # XXX: We are executing w/ Vex engine, but it might as well be Unicorn.

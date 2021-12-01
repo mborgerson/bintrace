@@ -13,7 +13,7 @@ class TraceDebugger:
 
     def __init__(self, tm: TraceManager):
         self._tm: TraceManager = tm
-        self.state: MemoryState = MemoryState()
+        self.state: MemoryState = None
         self.breakpoints: Set[int] = set()
 
     def add_breakpoint(self, addr: int):
@@ -32,15 +32,16 @@ class TraceDebugger:
         """
         Get most recent event that should cause reverse execution to stop (e.g. breakpoints).
         """
+        if self.state is None:
+            return None
         stop_events = set()
-        assert self.state.event is not None
         for addr in self.breakpoints:
             e = self._tm.get_prev_exec_event(self.state.event, addr)
             if e is not None:
                 stop_events.add(e)
         if len(stop_events) > 0:
-            return max(stop_events, key=lambda e: e.eid)
-        return self._tm.trace[0]
+            return max(stop_events, key=lambda e: e.handle)
+        return self._tm.get_first_event()
 
     def _get_next_stop_event(self) -> Optional[TraceEvent]:
         """
@@ -48,12 +49,12 @@ class TraceDebugger:
         """
         stop_events = set()
         for addr in self.breakpoints:
-            e = self._tm.get_next_exec_event(self.state.event or self._tm.trace[0], addr)
+            e = self._tm.get_next_exec_event(self.state.event if self.state else None, addr)
             if e is not None:
                 stop_events.add(e)
         if len(stop_events) > 0:
-            return min(stop_events, key=lambda e: e.eid)
-        return self._tm.trace[-1]
+            return min(stop_events, key=lambda e: e.handle)
+        return None
 
     @property
     def can_step_forward(self) -> bool:
@@ -63,10 +64,11 @@ class TraceDebugger:
         """
         Step forward by 1 machine instruction.
         """
+        until = self.state.event if self.state else None
         for _ in range(count):
-            self.state = self._tm.replay(
-                state=self.state,
-                until=self._tm.get_next_exec_event(self.state.event))
+            until = self._tm.get_next_exec_event(until)
+
+        self.state = self._tm.replay(state=self.state, until=until)
 
     @property
     def can_step_backward(self) -> bool:
@@ -76,11 +78,11 @@ class TraceDebugger:
         """
         Step backward by 1 machine instruction.
         """
+        until = self.state.event if self.state else None
         for _ in range(count):
-            self.state = self._tm.replay(
-                state=self.state,
-                until=self._tm.get_prev_exec_event(self.state.event))
-        _l.info('Stopped at %s', self.state.event)
+            until = self._tm.get_prev_exec_event(until)
+
+        self.state = self._tm.replay(state=self.state, until=until)
 
     @property
     def can_continue_forward(self) -> bool:

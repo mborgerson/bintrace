@@ -1,0 +1,54 @@
+table ImageMapEvent {
+  name: string;
+  offset: uint64;
+  base: uint64;
+  len: uint64;
+}
+
+table BlockEvent {
+  vcpu: uint8;
+  addr: uint64;
+  regs: [uint64];
+}
+
+table InsnEvent {
+  vcpu: uint8;
+  addr: uint64;
+  bytes: [ubyte];
+  mnem: string;
+}
+
+table MemoryEvent {
+  vcpu: uint8;
+  addr: uint64;
+  isStore: bool;
+  size: uint8;
+  value: uint64;
+  data: [ubyte];
+}
+
+table SyscallEvent {
+  vcpu: uint8;
+  num: uint16;
+}
+
+table SyscallRetEvent {
+  vcpu: uint8;
+  num: uint16;
+  ret: uint64;
+}
+
+union EventUnion {
+  imageMapEvent: ImageMapEvent,
+  blockEvent: BlockEvent,
+  insnEvent: InsnEvent,
+  memoryEvent: MemoryEvent,
+  syscallEvent: SyscallEvent,
+  syscallRetEvent: SyscallRetEvent
+}
+
+table Event {
+  event: EventUnion;
+}
+
+root_type Event;

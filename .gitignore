@@ -2,3 +2,5 @@
 *.pyc
 *.trace
 __pycache__
+bintrace_native.*.so
+build/

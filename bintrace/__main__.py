@@ -41,8 +41,10 @@ def main():
         else:
             IPython.embed()
     else:
-        for ev in tm.trace:
+        ev = tm.get_first_event()
+        while ev:
             print(str(ev))
+            ev = tm.get_next_event(ev)
 
 
 if __name__ == '__main__':

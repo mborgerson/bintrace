@@ -12,7 +12,7 @@ jobs:
           python-version: '3.8'
       - name: Install dependencies
         run: |
-          sudo apt install capnproto libcapnp-dev ninja-build ccache
+          sudo apt install ninja-build ccache flatbuffers-compiler libflatbuffers-dev
           pip install angr pylint
       - name: Initialize compiler cache
         id: cache
@@ -34,7 +34,6 @@ jobs:
           ccache -s -c
       - name: Lint
         run: |
-          wget https://raw.githubusercontent.com/angr/angr-dev/master/pylintrc
           pylint --rcfile=pylintrc ./bintrace
       - name: Test
         run: |

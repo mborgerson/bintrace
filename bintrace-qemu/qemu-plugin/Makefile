@@ -15,24 +15,21 @@ SONAMES := $(addsuffix .so,$(addprefix lib,$(NAMES)))
 CFLAGS = $(GLIB_CFLAGS)
 CFLAGS += -fPIC -Wall $(filter -W%, $(QEMU_CFLAGS))
 CFLAGS += $(if $(findstring no-psabi,$(QEMU_CFLAGS)),-Wpsabi)
-CFLAGS += -I$(SRC_PATH)/include/qemu
-
-CFLAGS += $(shell pkg-config --cflags capnp)
-LDLIBS += $(shell pkg-config --libs capnp)
-
-BINTRACE_DIR = $(shell python -c "import os.path as o, importlib.util as i; print(o.dirname(i.find_spec('bintrace').origin))")
-BINTRACE_PROTO = $(BINTRACE_DIR)/trace.capnp
 
 all: $(SONAMES)
 
-trace.o: trace.cpp trace.capnp.c++
+LDLIBS += -lflatbuffers
+trace.o: trace.cpp trace_generated.h
 	$(CXX) $(CFLAGS) -c -o $@ $<
+
+BINTRACE_DIR = $(shell python -c "import os.path as o, importlib.util as i; print(o.dirname(i.find_spec('bintrace').origin))")
+BINTRACE_PROTO = $(BINTRACE_DIR)/trace.fbs
 
 lib%.so: %.o
 	$(CXX) -shared -Wl,-soname,$@ -o $@ $^ $(LDLIBS)
 
-trace.capnp.h, trace.capnp.c++: $(BINTRACE_PROTO)
-	capnp compile -oc++ --src-prefix=$(BINTRACE_DIR) $<
+trace_generated.h: $(BINTRACE_PROTO)
+	flatc --cpp $<
 
 clean:
 	rm -f *.o *.so *.d
