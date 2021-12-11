@@ -91,9 +91,9 @@ class AngrTraceDebugger(TraceDebugger):
         """
         Load register and memory state from most recent BB event, then execute up to current state address.
         """
-        if self.state.event is None or self._tm.is_at_start(self.state):
-            _l.error('Not at a valid position to create simstate')
-            return None
+        if self.state is None or self.state.event is None or self._tm.is_at_start(self.state):
+            _l.error('Not at a valid position to create simstate, returning blank state')
+            return self.project.factory.blank_state()
 
         bb = self._tm.get_prev_bb_event(self.state.event)
         _l.info('Rewind to last BB event %s', bb)
