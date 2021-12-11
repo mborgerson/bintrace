@@ -39,6 +39,34 @@ class InspectEngine(NoSyscallEffectMixin, SimInspectMixin, HeavyVEXMixin):
     """
 
 
+def create_angr_project_from_trace(tm: TraceManager):
+    _l.info('Creating project from mapped images in trace')
+    mappings = list(tm.filter_image_map())
+    main_binary = mappings[0]
+
+    libs = mappings[1:] if len(mappings) > 1 else []
+    lib_map = defaultdict(list)
+    for lib in libs:
+        lib_map[lib.Name().decode('utf-8')].append(lib)
+    for name in list(lib_map.keys()):
+        if name in (main_binary.Name().decode('utf-8'), '/etc/ld.so.cache'):
+            lib_map.pop(name)
+        elif not os.path.exists(os.path.realpath(name)):
+            _l.warning('Could not find binary %s', name)
+            lib_map.pop(name)
+        else:
+            # XXX: We simply take the lowest address as image base. Possible failure.
+            lib_map[name] = min(lib_map[name], key=lambda l: l.Base())
+
+    ld_opts = {'main_opts': {'base_addr': main_binary.Base()},
+               'auto_load_libs': False,
+               'force_load_libs': [os.path.realpath(name) for name in lib_map],
+               'lib_opts': {os.path.realpath(name): {'base_addr': lib.Base()} for name, lib in lib_map.items()},
+               }
+
+    return angr.Project(main_binary.Name().decode('utf-8'), load_options=ld_opts)
+
+
 class AngrTraceDebugger(TraceDebugger):
     """
     Debugger-like interface for trace playback that can create angr states.
@@ -48,30 +76,7 @@ class AngrTraceDebugger(TraceDebugger):
         super().__init__(tm)
 
         if project is None:
-            _l.info('Creating project from mapped images in trace')
-            mappings = list(tm.filter_image_map())
-            main_binary = mappings[0]
-
-            libs = mappings[1:] if len(mappings) > 1 else []
-            lib_map = defaultdict(list)
-            for lib in libs:
-                lib_map[lib.Name().decode('utf-8')].append(lib)
-            for name in list(lib_map.keys()):
-                if name in (main_binary.Name().decode('utf-8'), '/etc/ld.so.cache'):
-                    lib_map.pop(name)
-                elif not os.path.exists(os.path.realpath(name)):
-                    _l.warning('Could not find binary %s', name)
-                    lib_map.pop(name)
-                else:
-                    # XXX: We simply take the lowest address as image base. Possibly failure.
-                    lib_map[name] = min(lib_map[name], key=lambda l: l.Base())
-
-            ld_opts = {'main_opts': {'base_addr': main_binary.Base()},
-                       'auto_load_libs': False,
-                       'force_load_libs': [os.path.realpath(name) for name in lib_map],
-                       'lib_opts': {os.path.realpath(name): {'base_addr': lib.Base()} for name, lib in lib_map.items()},
-            }
-            project = angr.Project(main_binary.Name().decode('utf-8'), load_options=ld_opts)
+            project = create_angr_project_from_trace(tm)
 
         self.project: angr.Project = project
 
