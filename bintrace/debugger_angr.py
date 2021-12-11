@@ -139,6 +139,10 @@ class AngrTraceDebugger(TraceDebugger):
         simstate.regs.cc_dep2 = 0
         simstate.regs.cc_ndep = 0
 
+        insns = [e for e in range_events(bb, self.state.event) if isinstance(e, InsnEvent)]
+        if len(insns) == 0:
+            return simstate
+
         # Gather all loads executed by each instruction, and write them just in
         # time to state memory before executing the instruction.
         def before_insn_exec(state):
@@ -148,7 +152,7 @@ class AngrTraceDebugger(TraceDebugger):
                 state.memory.store(event.Addr(), event.Value(), size=(1 << event.Size()),
                                    endness=state.arch.memory_endness)
 
-        simstate.inspect.b('instruction', when=angr.BP_BEFORE, action=before_insn_exec)
+        bp1 = simstate.inspect.b('instruction', when=angr.BP_BEFORE, action=before_insn_exec)
 
         def update_syscall_state(state):
             # XXX: Should use BP_AFTER with original IP
@@ -157,9 +161,7 @@ class AngrTraceDebugger(TraceDebugger):
                 state.regs.rax = syscall_events[pc].ret
         simstate.inspect.b('instruction', when=angr.BP_BEFORE, action=update_syscall_state)
 
-        insns = [e for e in range_events(bb, self.state.event) if isinstance(e, InsnEvent)]
-        if len(insns) == 0:
-            return simstate
+        bp2 = simstate.inspect.b('instruction', when=angr.BP_BEFORE, action=update_syscall_state)
 
         _l.info('Block Instructions:')
         insn_data = b''
@@ -181,4 +183,7 @@ class AngrTraceDebugger(TraceDebugger):
             for s in sim_successors.all_successors:
                 _l.info('--> %s %s', s, '(unsat)' if s in sim_successors.unsat_successors else '')
 
-        return sim_successors.all_successors[0]
+        s = sim_successors.all_successors[0]
+        s.inspect.remove_breakpoint('instruction', bp1)
+        s.inspect.remove_breakpoint('instruction', bp2)
+        return s
