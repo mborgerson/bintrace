@@ -145,7 +145,8 @@ class AngrTraceDebugger(TraceDebugger):
             _l.info('Executing @ %s', state.regs.pc)
             for event in load_events[state.solver.eval(state.regs.pc)]:
                 _l.info('   -> %s', event)
-                state.memory.store(event.Addr(), event.Value(), size=(1<<event.Size()))
+                state.memory.store(event.Addr(), event.Value(), size=(1 << event.Size()),
+                                   endness=state.arch.memory_endness)
 
         simstate.inspect.b('instruction', when=angr.BP_BEFORE, action=before_insn_exec)
 
