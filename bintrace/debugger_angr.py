@@ -134,7 +134,7 @@ class AngrTraceDebugger(TraceDebugger):
         for i, name in enumerate(dregs):
             setattr(simstate.regs, name, bb.Regs(i))
 
-        simstate.regs.cc_op = 0 # Copy
+        simstate.regs.cc_op = 0  # Copy
         simstate.regs.cc_dep1 = bb.Regs(17)
         simstate.regs.cc_dep2 = 0
         simstate.regs.cc_ndep = 0
