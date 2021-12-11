@@ -158,8 +158,7 @@ class AngrTraceDebugger(TraceDebugger):
             # XXX: Should use BP_AFTER with original IP
             pc = state.solver.eval(state.regs.pc)
             if pc in syscall_events:
-                state.regs.rax = syscall_events[pc].ret
-        simstate.inspect.b('instruction', when=angr.BP_BEFORE, action=update_syscall_state)
+                state.regs.rax = syscall_events[pc].Ret()
 
         bp2 = simstate.inspect.b('instruction', when=angr.BP_BEFORE, action=update_syscall_state)
 
