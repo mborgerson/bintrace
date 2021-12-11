@@ -16,7 +16,7 @@ _l = logging.getLogger(name=__name__)
 
 
 # FIXME: Tests for syscall. Needs engine fixes for proper support.
-#pylint:disable=abstract-method,arguments-differ
+# pylint:disable=abstract-method,arguments-differ
 class NoSyscallEffectMixin(SuccessorsMixin, ProcedureMixin):
     """
     Helper for block state recovery.
@@ -26,9 +26,9 @@ class NoSyscallEffectMixin(SuccessorsMixin, ProcedureMixin):
         state = self.state
         # we have at this point entered the next step so we need to check the previous jumpkind
         if (not state.history
-            or not state.history.parent
-            or not state.history.parent.jumpkind
-            or not state.history.parent.jumpkind.startswith('Ijk_Sys')):
+                or not state.history.parent
+                or not state.history.parent.jumpkind
+                or not state.history.parent.jumpkind.startswith('Ijk_Sys')):
             super().process_successors(successors, **kwargs)
         successors.processed = True
 
@@ -105,7 +105,7 @@ class AngrTraceDebugger(TraceDebugger):
                 yield ev
                 ev = self._tm.get_next_event(ev)
 
-        for event in range_events(bb, self.state.event):#self._tm.get_next_event(self.state.event)):
+        for event in range_events(bb, self.state.event):
             _l.info(event)
             if isinstance(event, InsnEvent):
                 last_insn = event.Addr()
@@ -118,7 +118,7 @@ class AngrTraceDebugger(TraceDebugger):
         # Slow memory store to state
         # FIXME: replace with faster, no-copy version...
         simstate = self.project.factory.blank_state()
-        for addr,size in state.get_contiguous_ranges():
+        for addr, size in state.get_contiguous_ranges():
             simstate.memory.store(addr, state.get_bytes(addr, size))
 
         # FIXME: Some registers are not modeled here (e.g. FS), so execution may be incorrect
@@ -167,8 +167,7 @@ class AngrTraceDebugger(TraceDebugger):
 
         # XXX: We are executing w/ Vex engine, but it might as well be Unicorn.
         #      It's typically only a handful of instructions.
-        _l.info('Executing @ %s', simstate.regs.pc)
-        _l.info('Executing up to %s', self.state.event)
+        _l.info('Executing at %s, up to %s', simstate.regs.pc, self.state.event)
         sim_successors = InspectEngine(None).process(simstate, irsb=irsb)
         if len(sim_successors.successors) != 1:
             _l.warning('!!! Unexpected number of successors: %d (%d total)',
