@@ -58,7 +58,7 @@ class TraceDebugger:
 
     @property
     def can_step_forward(self) -> bool:
-        return not self._tm.is_at_end(self.state)
+        return self.state is None or not self._tm.is_at_end(self.state)
 
     def step_forward(self, count=1):
         """
@@ -72,7 +72,7 @@ class TraceDebugger:
 
     @property
     def can_step_backward(self) -> bool:
-        return not self._tm.is_at_start(self.state)
+        return self.state is not None and not self._tm.is_at_start(self.state)
 
     def step_backward(self, count=1):
         """
@@ -86,7 +86,7 @@ class TraceDebugger:
 
     @property
     def can_continue_forward(self) -> bool:
-        return not self._tm.is_at_end(self.state)
+        return self.state is None or not self._tm.is_at_end(self.state)
 
     def continue_forward(self):
         """
@@ -97,7 +97,7 @@ class TraceDebugger:
 
     @property
     def can_continue_backward(self) -> bool:
-        return not self._tm.is_at_start(self.state)
+        return self.state is not None and not self._tm.is_at_start(self.state)
 
     def continue_backward(self):
         """
