@@ -153,6 +153,7 @@ class TraceManager:
         self._f = None
         self._ntm = None
         self._mm = None
+        self.path = None
 
     def _handle_to_event(self, handle):
         if handle == INVALID_EVENT_HANDLE:
@@ -176,6 +177,7 @@ class TraceManager:
         """
         Load trace from file.
         """
+        self.path = path
         self._f = open(path, 'r+b')  # pylint:disable=consider-using-with
         self._f.seek(0, 2)
         e = self._f.tell()
