@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import subprocess
+import sys
 from setuptools import setup
 from setuptools.command.build_py import build_py
 from setuptools.command.develop import develop as _develop
@@ -8,8 +9,11 @@ from pybind11.setup_helpers import Pybind11Extension, build_ext
 __version__ = "0.0.1"
 
 def get_include_dirs():
-    l = subprocess.check_output('pkg-config --cflags flatbuffers'.split(), encoding='utf-8')
-    return [d[2:] for d in l.split() if d.startswith('-I')]
+    if sys.platform == 'darwin':
+        l = subprocess.check_output('pkg-config --cflags flatbuffers'.split(), encoding='utf-8')
+        return [d[2:] for d in l.split() if d.startswith('-I')]
+    else:
+        return []
 
 def build_common():
     subprocess.check_call('flatc -o events --python trace.fbs'.split(), cwd='bintrace')
