@@ -7,6 +7,10 @@ from pybind11.setup_helpers import Pybind11Extension, build_ext
 
 __version__ = "0.0.1"
 
+def get_include_dirs():
+    l = subprocess.check_output('pkg-config --cflags flatbuffers'.split(), encoding='utf-8')
+    return [d[2:] for d in l.split() if d.startswith('-I')]
+
 def build_common():
     subprocess.check_call('flatc -o events --python trace.fbs'.split(), cwd='bintrace')
 
@@ -29,7 +33,8 @@ class custom_build_ext(build_ext):
 ext_modules = [
     Pybind11Extension("bintrace_native",
         ["bintrace-native/bintrace-native.cpp"],
-        define_macros = [('VERSION_INFO', __version__)]
+        define_macros=[('VERSION_INFO', __version__)],
+        include_dirs=get_include_dirs()
         ),
 ]
 
