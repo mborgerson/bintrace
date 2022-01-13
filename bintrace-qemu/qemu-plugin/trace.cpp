@@ -97,7 +97,7 @@ static void vcpu_mem(unsigned int vcpu_idx, qemu_plugin_meminfo_t info,
 {
     struct qemu_plugin_hwaddr *hwaddr = qemu_plugin_get_hwaddr(info, vaddr);
     if (hwaddr) {
-        assert(0);
+        // assert(0);
         // uint64_t addr = qemu_plugin_hwaddr_phys_addr(hwaddr);
         // const char *name = qemu_plugin_hwaddr_device_name(hwaddr);
         // g_string_append_printf(s, ", 0x%"PRIx64", %s", addr, name);
