@@ -1,0 +1,48 @@
+From af06b32cb4047209c0176868f2d40b28511e2940 Mon Sep 17 00:00:00 2001
+From: Matt Borgerson <contact@mborgerson.com>
+Date: Wed, 12 Jan 2022 16:24:10 -0700
+Subject: [PATCH 4/4] Fix softmmu tracing
+
+---
+ accel/tcg/atomic_template.h | 4 ++--
+ accel/tcg/cputlb.c          | 2 +-
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+diff --git a/accel/tcg/atomic_template.h b/accel/tcg/atomic_template.h
+index 1f1ad4e..1759b5d 100644
+--- a/accel/tcg/atomic_template.h
++++ b/accel/tcg/atomic_template.h
+@@ -240,7 +240,7 @@ ABI_TYPE ATOMIC_NAME(ld)(CPUArchState *env, target_ulong addr,
+ 
+     val = atomic16_read(haddr);
+     ATOMIC_MMU_CLEANUP;
+-    atomic_trace_ld_post(env, addr, info);
++    atomic_trace_ld_post(env, addr, info, val);
+     return BSWAP(val);
+ }
+ 
+@@ -254,7 +254,7 @@ void ATOMIC_NAME(st)(CPUArchState *env, target_ulong addr, ABI_TYPE val,
+     val = BSWAP(val);
+     atomic16_set(haddr, val);
+     ATOMIC_MMU_CLEANUP;
+-    atomic_trace_st_post(env, addr, info);
++    atomic_trace_st_post(env, addr, info, val);
+ }
+ #endif
+ #else
+diff --git a/accel/tcg/cputlb.c b/accel/tcg/cputlb.c
+index 4be6195..763e752 100644
+--- a/accel/tcg/cputlb.c
++++ b/accel/tcg/cputlb.c
+@@ -2564,7 +2564,7 @@ cpu_store_helper(CPUArchState *env, target_ulong addr, uint64_t val,
+     oi = make_memop_idx(op, mmu_idx);
+     store_helper(env, addr, val, oi, retaddr, op);
+ 
+-    qemu_plugin_vcpu_mem_cb(env_cpu(env), addr, meminfo, ret);
++    qemu_plugin_vcpu_mem_cb(env_cpu(env), addr, meminfo, val);
+ }
+ 
+ void cpu_stb_mmuidx_ra(CPUArchState *env, target_ulong addr, uint32_t val,
+-- 
+2.25.1
+
