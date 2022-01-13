@@ -67,7 +67,7 @@ class MemoryEvent(TraceEvent, FBMemoryEvent):
     """
 
     def __repr__(self):
-        s = f'<MemoryEvent [{("Store", "Load")[self.IsStore()]}] vcpu={self.Vcpu()} addr={self.Addr():#x} '
+        s = f'<MemoryEvent [{("Load", "Store")[self.IsStore()]}] vcpu={self.Vcpu()} addr={self.Addr():#x} '
         if self.DataLength():
             s += f'size={self.DataLength()} bytes={repr(bytes(self.Data(i) for i in range(self.DataLength())))}'
         else:
