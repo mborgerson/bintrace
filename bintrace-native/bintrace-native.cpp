@@ -210,7 +210,7 @@ PYBIND11_MODULE(bintrace_native, m) {
         ;
 
     py::class_<NativeTraceManager>(m, "NativeTraceManager")
-        .def(py::init<int, int>())
+        .def(py::init<int, size_t>())
         .def("event_handle_invalid", &NativeTraceManager::event_handle_invalid)
         .def("get_first_event", &NativeTraceManager::get_first_event)
         .def("get_last_event", &NativeTraceManager::get_last_event)
