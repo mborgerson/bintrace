@@ -132,7 +132,6 @@ class AngrTraceDebugger(TraceDebugger):
                 syscall_events[last_insn] = event
 
         # Slow memory store to state
-        # FIXME: replace with faster, no-copy version...
         simstate = self.project.factory.blank_state()
         for addr, size in state.get_contiguous_ranges():
             simstate.memory.store(addr, state.get_bytes(addr, size))
@@ -140,13 +139,19 @@ class AngrTraceDebugger(TraceDebugger):
         # FIXME: Some registers are not modeled here (e.g. FS), so execution may be incorrect
         #        Need to model rflags
         # FIXME: Should determine register list from arch structure (it maps GDB's listing)
-        dregs = ('rax', 'rbx', 'rcx', 'rdx', 'rsi', 'rdi', 'rbp', 'rsp', 'r8',
-                 'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15', 'pc', 'eflags')
+        if self.project.arch.name == 'AMD64':
+            dregs = ('rax', 'rbx', 'rcx', 'rdx', 'rsi', 'rdi', 'rbp', 'rsp', 'r8',
+                     'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15', 'pc', 'eflags')
+        elif self.project.arch.name == 'X86':
+            dregs = ('eax', 'ebx', 'ecx', 'edx', 'esi', 'edi', 'ebp', 'esp', 'pc', 'eflags')
+        else:
+            assert False, 'FIXME: Make register info generic'
+
         for i, name in enumerate(dregs):
             setattr(simstate.regs, name, bb.Regs(i))
 
         simstate.regs.cc_op = 0  # Copy
-        simstate.regs.cc_dep1 = bb.Regs(17)
+        simstate.regs.cc_dep1 = bb.Regs(len(dregs)-1)
         simstate.regs.cc_dep2 = 0
         simstate.regs.cc_ndep = 0
 
