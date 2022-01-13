@@ -145,25 +145,30 @@ public:
 
             auto rev = handle_to_event(state.ev);
             if (rev->event_type() == EventUnion_memoryEvent) {
-                auto mev = rev->event_as_memoryEvent();
-                if (mev->isStore()) {
-                    const uint8_t *bytes;
-                    uint64_t sz;
-                    uint64_t v;
+                auto ev = rev->event_as_memoryEvent();
+                const uint8_t *bytes;
+                uint64_t sz;
+                uint64_t v;
 
-                    if (mev->data()) {
-                        sz = mev->data()->size();
-                        bytes = mev->data()->data();
-                    } else {
-                        v = mev->value();
-                        sz = 1 << mev->size();
-                        assert(sz <= 8);
-                        bytes = (uint8_t*)&v; // XXX: Portability
-                    }
+                if (ev->data()) {
+                    sz = ev->data()->size();
+                    bytes = ev->data()->data();
+                } else {
+                    v = ev->value();
+                    sz = 1 << ev->size();
+                    assert(sz <= 8);
+                    bytes = (uint8_t*)&v; // XXX: Portability
+                }
 
-                    for (size_t i = 0; i < sz; i++) {
-                        state.mem[mev->addr() + i] = bytes[i];
-                    }
+                for (size_t i = 0; i < sz; i++) {
+                    state.mem[ev->addr() + i] = bytes[i];
+                }
+            } else if (rev->event_type() == EventUnion_insnEvent) {
+                auto ev = rev->event_as_insnEvent();
+                const uint8_t *bytes = ev->bytes()->data();
+                uint64_t sz = ev->bytes()->size();
+                for (size_t i = 0; i < sz; i++) {
+                    state.mem[ev->addr() + i] = bytes[i];
                 }
             }
 
