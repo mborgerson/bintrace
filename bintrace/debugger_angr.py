@@ -143,7 +143,7 @@ class AngrTraceDebugger(TraceDebugger):
             dregs = ('rax', 'rbx', 'rcx', 'rdx', 'rsi', 'rdi', 'rbp', 'rsp', 'r8',
                      'r9', 'r10', 'r11', 'r12', 'r13', 'r14', 'r15', 'pc', 'eflags')
         elif self.project.arch.name == 'X86':
-            dregs = ('eax', 'ebx', 'ecx', 'edx', 'esi', 'edi', 'ebp', 'esp', 'pc', 'eflags')
+            dregs = ('eax', 'ecx', 'edx', 'ebx', 'esp', 'ebp', 'esi', 'edi', 'pc', 'eflags')
         else:
             assert False, 'FIXME: Make register info generic'
 
