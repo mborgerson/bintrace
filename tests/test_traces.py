@@ -4,7 +4,7 @@ import logging
 import os.path
 import re
 
-from bintrace import TraceManager, ImageMapEvent, InsnEvent
+from bintrace import Trace, ImageMapEvent, InsnEvent
 from bintrace.debugger import TraceDebugger
 from bintrace.debugger_angr import AngrTraceDebugger
 
@@ -19,7 +19,7 @@ def get_symbols(bin, base=0):
 
 class TraceTest(unittest.TestCase):
     """
-    Run tests for TraceManager and TraceDebugger.
+    Run tests for Trace and TraceDebugger.
     """
 
     @classmethod
@@ -30,7 +30,7 @@ class TraceTest(unittest.TestCase):
         _l.info('Collecting trace...')
         subprocess.run('seq 100 110 | bintrace-qemu ./simple_global > /dev/null', shell=True)
 
-        cls.tm = TraceManager()
+        cls.tm = Trace()
         cls.tm.load_trace('simple_global.trace')
         cls.syms = get_symbols('simple_global', next(cls.tm.filter_image_map()).Base())
 

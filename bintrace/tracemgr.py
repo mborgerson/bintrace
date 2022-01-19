@@ -4,7 +4,7 @@ import logging
 import mmap
 import copy
 
-from bintrace_native import NativeTraceManager, State as NativeState  # pylint:disable=no-name-in-module
+from bintrace_native import NativeTrace, State as NativeState  # pylint:disable=no-name-in-module
 
 # Following modules are generated at install time by flatc
 # pylint:disable=import-error
@@ -144,7 +144,7 @@ class MemoryState:
             yield (start, i)
 
 
-class TraceManager:
+class Trace:
     """
     Manages trace playback.
     """
@@ -182,7 +182,7 @@ class TraceManager:
         self._f.seek(0, 2)
         e = self._f.tell()
         self._f.seek(0)
-        self._ntm = NativeTraceManager(self._f.fileno(), e)
+        self._ntm = NativeTrace(self._f.fileno(), e)
         self._mm = mmap.mmap(self._f.fileno(), 0)
 
     def get_first_event(self) -> Optional[TraceEvent]:

@@ -31,7 +31,7 @@ struct State {
     std::unordered_map<uint64_t, uint8_t> mem;
 };
 
-class NativeTraceManager {
+class NativeTrace {
 protected:
     uint8_t *m_data;
     size_t m_size;
@@ -39,7 +39,7 @@ protected:
     EventHandle m_last_event;
 
 public:
-    NativeTraceManager(int fd, size_t size) {
+    NativeTrace(int fd, size_t size) {
         m_size = size;
         if (m_size) {
             m_data = (uint8_t*)mmap(0, m_size, PROT_READ, MAP_PRIVATE, fd, 0);
@@ -54,7 +54,21 @@ public:
         }
     }
 
-    ~NativeTraceManager() {
+    NativeTrace(const std::string &path) {
+        FILE *f = fopen(path.c_str(), "rb");
+        fseek(f, 0, SEEK_END);
+        m_size = ftell(f);
+        fseek(f, 0, SEEK_SET);
+        int fd = fileno(f);
+        m_data = (uint8_t*)mmap(0, m_size, PROT_READ, MAP_PRIVATE, fd, 0);
+        assert(m_data);
+        fclose(f);
+        m_first_event = (EventHandle)(0);
+        size_t last_sz = *(uint32_t*)&m_data[m_size-4];
+        m_last_event = m_size - last_sz - 2*4;
+    }
+
+    ~NativeTrace() {
         munmap(m_data, m_size);
     }
 
@@ -209,20 +223,20 @@ PYBIND11_MODULE(bintrace_native, m) {
         .def("__copy__",  [](const State &self) { return State(self); })
         ;
 
-    py::class_<NativeTraceManager>(m, "NativeTraceManager")
+    py::class_<NativeTrace>(m, "NativeTrace")
         .def(py::init<int, size_t>())
-        .def("event_handle_invalid", &NativeTraceManager::event_handle_invalid)
-        .def("get_first_event", &NativeTraceManager::get_first_event)
-        .def("get_last_event", &NativeTraceManager::get_last_event)
-        .def("get_prev_event", &NativeTraceManager::get_prev_event)
-        .def("get_next_event", &NativeTraceManager::get_next_event)
-        .def("get_num_events", &NativeTraceManager::get_num_events)
-        .def("replay", &NativeTraceManager::replay)
-        .def("replay_from_state_until", &NativeTraceManager::replay_from_state_until)
-        .def("replay_until", &NativeTraceManager::replay_until)
-        .def("filter_type", &NativeTraceManager::filter_type)
-        .def("filter_exec_addr", &NativeTraceManager::filter_exec_addr)
-        .def("filter_memory", &NativeTraceManager::filter_memory)
+        .def("event_handle_invalid", &NativeTrace::event_handle_invalid)
+        .def("get_first_event", &NativeTrace::get_first_event)
+        .def("get_last_event", &NativeTrace::get_last_event)
+        .def("get_prev_event", &NativeTrace::get_prev_event)
+        .def("get_next_event", &NativeTrace::get_next_event)
+        .def("get_num_events", &NativeTrace::get_num_events)
+        .def("replay", &NativeTrace::replay)
+        .def("replay_from_state_until", &NativeTrace::replay_from_state_until)
+        .def("replay_until", &NativeTrace::replay_until)
+        .def("filter_type", &NativeTrace::filter_type)
+        .def("filter_exec_addr", &NativeTrace::filter_exec_addr)
+        .def("filter_memory", &NativeTrace::filter_memory)
         ;
 
 #ifdef VERSION_INFO

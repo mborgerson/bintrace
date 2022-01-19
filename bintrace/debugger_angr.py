@@ -9,7 +9,7 @@ from angr.engines import HeavyVEXMixin, SimInspectMixin
 from angr.engines.engine import SuccessorsMixin
 from angr.engines.procedure import ProcedureMixin
 
-from .tracemgr import TraceManager, InsnEvent, MemoryEvent, SyscallRetEvent
+from .tracemgr import Trace, InsnEvent, MemoryEvent, SyscallRetEvent
 from .debugger import TraceDebugger
 
 _l = logging.getLogger(name=__name__)
@@ -39,7 +39,7 @@ class InspectEngine(NoSyscallEffectMixin, SimInspectMixin, HeavyVEXMixin):
     """
 
 
-def get_angr_project_load_options_from_trace(tm: TraceManager):
+def get_angr_project_load_options_from_trace(tm: Trace):
     mappings = list(tm.filter_image_map())
     if len(mappings) == 0:
         return None
@@ -72,7 +72,7 @@ def get_angr_project_load_options_from_trace(tm: TraceManager):
     }
 
 
-def create_angr_project_from_trace(tm: TraceManager):
+def create_angr_project_from_trace(tm: Trace):
     _l.info('Creating project from mapped images in trace')
     load_opts = get_angr_project_load_options_from_trace(tm)
     return angr.Project(**load_opts)
@@ -83,7 +83,7 @@ class AngrTraceDebugger(TraceDebugger):
     Debugger-like interface for trace playback that can create angr states.
     """
 
-    def __init__(self, tm: TraceManager, project: Optional[angr.Project] = None):
+    def __init__(self, tm: Trace, project: Optional[angr.Project] = None):
         super().__init__(tm)
 
         if project is None:
@@ -191,7 +191,7 @@ class AngrTraceDebugger(TraceDebugger):
         b.capstone.pp()
 
         _l.info('Lifting Block:')
-        irsb = pyvex.IRSB(insn_data, bb.Addr(), self.project.arch)
+        irsb = pyvex.IRSB(insn_data, bb.Addr(), self.project.arch, opt_level=0)
         _l.info('%s', irsb)
 
         # XXX: We are executing w/ Vex engine, but it might as well be Unicorn.

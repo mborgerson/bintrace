@@ -1,7 +1,7 @@
 from typing import Optional, Set
 import logging
 
-from .tracemgr import TraceManager, MemoryState, TraceEvent
+from .tracemgr import Trace, MemoryState, TraceEvent
 
 _l = logging.getLogger(name=__name__)
 
@@ -11,8 +11,8 @@ class TraceDebugger:
     Debugger-like interface for trace playback. Allows setting breakpoints, continuing, etc.
     """
 
-    def __init__(self, tm: TraceManager):
-        self._tm: TraceManager = tm
+    def __init__(self, tm: Trace):
+        self._tm: Trace = tm
         self.state: MemoryState = None
         self.breakpoints: Set[int] = set()
 

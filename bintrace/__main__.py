@@ -6,7 +6,7 @@ except ImportError:
 import logging
 import code
 from argparse import ArgumentParser
-from bintrace import TraceManager
+from bintrace import Trace
 from bintrace.debugger import TraceDebugger
 if angr is not None:
     from bintrace.debugger_angr import AngrTraceDebugger
@@ -25,7 +25,7 @@ def main():
     ap.add_argument('-i', '--interactive', default=False, action='store_true', help='Enter interactive shell')
     args = ap.parse_args()
 
-    tm = TraceManager()
+    tm = Trace()
     tm.load_trace(args.path)
 
     if args.interactive:
