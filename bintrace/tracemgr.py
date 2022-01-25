@@ -106,6 +106,7 @@ class MemoryState:
     """
     def __init__(self, native_state: NativeState, event: Optional[TraceEvent]):
         self._ns: NativeState = native_state
+        self.event_count: int = self._ns.ev_count
         self.event: TraceEvent = event  # Event that this state reflects all changes up to, but not including
         assert event is None or (self.event.handle == self._ns.ev)
 
@@ -184,6 +185,12 @@ class Trace:
         self._f.seek(0)
         self._ntm = NativeTrace(self._f.fileno(), e)
         self._mm = mmap.mmap(self._f.fileno(), 0)
+
+    def get_num_events(self) -> int:
+        return self._ntm.get_num_events()
+
+    def get_nth_event(self, n: int) -> Optional[TraceEvent]:
+        return self._handle_to_event(self._ntm.get_nth_event(n))
 
     def get_first_event(self) -> Optional[TraceEvent]:
         return self._handle_to_event(self._ntm.get_first_event())

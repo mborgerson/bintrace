@@ -27,6 +27,7 @@ typedef uintptr_t EventHandle;
 const EventHandle invalid_event_handle = (EventHandle)(-1);
 
 struct State {
+    size_t ev_count;
     EventHandle ev;
     std::unordered_map<uint64_t, uint8_t> mem;
 };
@@ -104,6 +105,17 @@ public:
             c++;
         }
         return c;
+    }
+
+    EventHandle get_nth_event(size_t n) {
+        // FIXME: Could be faster seeking from end or from known position
+        size_t c = 0;
+        for (EventHandle ev = m_first_event; !event_handle_invalid(ev); ev = get_next_event(ev)) {
+            if (c++ == n) {
+                return ev;
+            }
+        }
+        return invalid_event_handle;
     }
 
     const Event *handle_to_event(EventHandle handle) {
@@ -186,6 +198,7 @@ public:
                 }
             }
 
+            state.ev_count++;
             state.ev = get_next_event(state.ev);
         }
 
@@ -194,6 +207,7 @@ public:
 
     State replay_until(EventHandle until) {
         State state;
+        state.ev_count = 0;
         state.ev = m_first_event;
         return replay_from_state_until(state, until);
     }
@@ -218,6 +232,7 @@ PYBIND11_MODULE(bintrace_native, m) {
     py::class_<State>(m, "State")
         .def(py::init<>())
         .def_readonly("ev", &State::ev)
+        .def_readonly("ev_count", &State::ev_count)
         .def_readonly("mem", &State::mem)
         .def("__getitem__", [](const State &self, size_t i) { return self.mem.at(i); })
         .def("__copy__",  [](const State &self) { return State(self); })
@@ -231,6 +246,7 @@ PYBIND11_MODULE(bintrace_native, m) {
         .def("get_prev_event", &NativeTrace::get_prev_event)
         .def("get_next_event", &NativeTrace::get_next_event)
         .def("get_num_events", &NativeTrace::get_num_events)
+        .def("get_nth_event", &NativeTrace::get_nth_event)
         .def("replay", &NativeTrace::replay)
         .def("replay_from_state_until", &NativeTrace::replay_from_state_until)
         .def("replay_until", &NativeTrace::replay_until)
