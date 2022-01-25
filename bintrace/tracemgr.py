@@ -1,4 +1,3 @@
-# FIXME: Checkpoints
 from typing import Optional
 import logging
 import mmap
@@ -155,6 +154,8 @@ class Trace:
         self._ntm = None
         self._mm = None
         self.path = None
+        self.checkpoints = []
+        self.max_checkpoints = 10
 
     def _handle_to_event(self, handle):
         if handle == INVALID_EVENT_HANDLE:
@@ -277,6 +278,20 @@ class Trace:
         if reverse:
             state = None
 
+        # Check checkpoint cache to see if any recent replays are available
+        candidates = [s for s in self.checkpoints if s.event.handle <= until_handle]
+        if len(candidates):
+            _l.info('Checkpoint cache hit!')
+            state = max(candidates, key=lambda s: s.event.handle)
+            self.checkpoints.remove(state)
+            self.checkpoints.insert(0, state)
+        else:
+            _l.info('Checkpoint cache miss!')
+
+        if state and state.event.handle == until_handle:
+            _l.info('Provided state is target state')
+            return state
+
         _l.info('Replaying from %s to %s%s',
                     state.event if state else 'start',
                     until if until else 'end',
@@ -286,7 +301,13 @@ class Trace:
         else:
             ns = self._ntm.replay_until(until_handle)
 
-        return MemoryState(ns, self._handle_to_event(ns.ev))
+        state = MemoryState(ns, self._handle_to_event(ns.ev))
+
+        if state.event is not None:
+            self.checkpoints.insert(0, state)
+            self.checkpoints = self.checkpoints[0:self.max_checkpoints-1]
+
+        return state
 
     @staticmethod
     def is_at_end(state: MemoryState) -> bool:
