@@ -255,7 +255,8 @@ class Trace:
             yield self._handle_to_event(h)
             h = self._ntm.filter_exec_addr(self._ntm.get_next_event(h), addr, True)
 
-    def get_next_memory_event_in_direction(self, addr: int, len_: int, store: bool, forward: bool = True, start: Optional[TraceEvent] = None):
+    def get_next_memory_event_in_direction(self, addr: int, len_: int, store: bool, forward: bool = True,
+                                           start: Optional[TraceEvent] = None):
         """
         Get next load/store to an address.
         """
@@ -267,7 +268,8 @@ class Trace:
                 self._ntm.filter_memory(e.handle, addr, len_, store, forward)
                 )
 
-    def filter_memory(self, addr: int, len_: int, store: bool, forward: bool = True, start: Optional[TraceEvent] = None):
+    def filter_memory(self, addr: int, len_: int, store: bool, forward: bool = True,
+                      start: Optional[TraceEvent] = None):
         """
         Generate all loads/stores to byte address.
         """
@@ -276,8 +278,7 @@ class Trace:
             e = self.get_next_memory_event_in_direction(addr, len_, store, forward, e)
             if e is None:
                 break
-            else:
-                yield e
+            yield e
 
     def filter_image_map(self):
         h = self._ntm.filter_type(self._ntm.get_first_event(), FBEventUnion.imageMapEvent, True)
