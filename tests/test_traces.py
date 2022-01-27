@@ -76,6 +76,30 @@ class TraceTest(unittest.TestCase):
             d.continue_backward()
         self.assertEqual(values, list(range(109,99,-1)))
 
+    def test_watchpoint_write(self):
+        d = TraceDebugger(self.tm)
+        d.breakpoints.add(Breakpoint(BreakpointType.Write, self.syms['global_value'], 4))
+        values = []
+        d.continue_forward()
+        while not self.tm.is_at_end(d.state):
+            d.continue_forward()
+            values.append(d.state.get_int(self.syms["global_value"], 4))
+        self.assertEqual(values, list(range(100, 110)))
+
+    def test_watchpoint_reverse(self):
+        d = TraceDebugger(self.tm)
+        d.continue_forward()
+        d.breakpoints.add(Breakpoint(BreakpointType.Write, self.syms['global_value'], 4))
+        d.continue_backward()
+        values = []
+        while not self.tm.is_at_start(d.state):
+            d.continue_forward()
+            values.append(d.state.get_int(self.syms["global_value"], 4))
+            d.continue_backward()
+            d.continue_backward()
+        self.assertEqual(values, list(range(109,99,-1)))
+
+
     #
     # Test angr Trace Debugger
     #

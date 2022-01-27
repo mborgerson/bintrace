@@ -27,11 +27,10 @@ class Breakpoint:
         'type', 'addr', 'length', 'comment'
     )
 
-    def __init__(self, type_: BreakpointType, addr: int, length: int = 1, comment: str = ''):
+    def __init__(self, type_: BreakpointType, addr: int, length: int = 1):
         self.type: BreakpointType = type_
         self.addr: int = addr
         self.length: int = length
-        self.comment: str = comment
 
 
 class TraceDebugger:
@@ -44,37 +43,46 @@ class TraceDebugger:
         self.state: MemoryState = None
         self.breakpoints: Set[Breakpoint] = set()
 
+    def _get_breakpoint_events_in_direction(self, start: Optional[TraceEvent], forward: bool) -> Set[TraceEvent]:
+        events = set()
+
+        for bp in self.breakpoints:
+            if bp.type == BreakpointType.Execute:
+                if forward:
+                    e = self._tm.get_next_exec_event(start, bp.addr)
+                else:
+                    e = self._tm.get_prev_exec_event(start, bp.addr)
+            elif bp.type == BreakpointType.Read:
+                e = self._tm.get_next_memory_event_in_direction(
+                    bp.addr, bp.length, store=False, forward=forward, start=start)
+            elif bp.type == BreakpointType.Write:
+                e = self._tm.get_next_memory_event_in_direction(
+                    bp.addr, bp.length, store=True, forward=forward, start=start)
+            else:
+                assert False, 'Unsupported breakpoint type'
+
+            if e is not None:
+                events.add(e)
+
+        return events
+
     def _get_prev_stop_event(self) -> Optional[TraceEvent]:
         """
         Get most recent event that should cause reverse execution to stop (e.g. breakpoints).
         """
         if self.state is None:
             return None
-        stop_events = set()
-        for bp in self.breakpoints:
-            if bp.type == BreakpointType.Execute:
-                e = self._tm.get_prev_exec_event(self.state.event, bp.addr)
-            # elif bp.type == BreakpointType.Read:
-            #     e = self._tm.get_prev_
-            if e is not None:
-                stop_events.add(e)
-        if len(stop_events) > 0:
-            return max(stop_events, key=lambda e: e.handle)
-        return self._tm.get_first_event()
+        stop_events = self._get_breakpoint_events_in_direction(self.state.event, forward=False)
+        stop_events.add(self._tm.get_first_event())
+        return max(stop_events, key=lambda e: e.handle)
 
     def _get_next_stop_event(self) -> Optional[TraceEvent]:
         """
         Get next event that should cause execution to stop (e.g. breakpoints).
         """
-        stop_events = set()
-        for bp in self.breakpoints:
-            if bp.type == BreakpointType.Execute:
-                e = self._tm.get_next_exec_event(self.state.event if self.state else None, bp.addr)
-            if e is not None:
-                stop_events.add(e)
-        if len(stop_events) > 0:
-            return min(stop_events, key=lambda e: e.handle)
-        return None
+        start_event = self.state.event if self.state else None
+        stop_events = self._get_breakpoint_events_in_direction(start_event, forward=True)
+        return min(stop_events, key=lambda e: e.handle) if len(stop_events) else None
 
     @property
     def can_step_forward(self) -> bool:

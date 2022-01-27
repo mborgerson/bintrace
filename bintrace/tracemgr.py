@@ -196,11 +196,20 @@ class Trace:
     def get_first_event(self) -> Optional[TraceEvent]:
         return self._handle_to_event(self._ntm.get_first_event())
 
+    def get_last_event(self) -> Optional[TraceEvent]:
+        return self._handle_to_event(self._ntm.get_last_event())
+
     def get_next_event(self, event: TraceEvent) -> Optional[TraceEvent]:
         return self._handle_to_event(self._ntm.get_next_event(event.handle))
 
     def get_prev_event(self, event: TraceEvent) -> Optional[TraceEvent]:
         return self._handle_to_event(self._ntm.get_prev_event(event.handle))
+
+    def get_next_event_in_direction(self, start: Optional[EventHandle], forward: bool) -> Optional[TraceEvent]:
+        if start is None:
+            return self.get_first_event() if forward else self.get_last_event()
+        else:
+            return self.get_next_event(start) if forward else self.get_prev_event(start)
 
     def get_next_exec_event(self, event: Optional[TraceEvent] = None,
                                   addr: Optional[int] = None) -> Optional[InsnEvent]:
@@ -246,29 +255,29 @@ class Trace:
             yield self._handle_to_event(h)
             h = self._ntm.filter_exec_addr(self._ntm.get_next_event(h), addr, True)
 
-    def _get_next_event_handle_in_direction(self, handle: EventHandle, forward: bool) -> EventHandle:
-        if forward:
-            return self._ntm.get_next_event(handle)
+    def get_next_memory_event_in_direction(self, addr: int, len_: int, store: bool, forward: bool = True, start: Optional[TraceEvent] = None):
+        """
+        Get next load/store to an address.
+        """
+        e = self.get_next_event_in_direction(start, forward)
+        if e is None:
+            return e
         else:
-            return self._ntm.get_prev_event(handle)
+            return self._handle_to_event(
+                self._ntm.filter_memory(e.handle, addr, len_, store, forward)
+                )
 
     def filter_memory(self, addr: int, len_: int, store: bool, forward: bool = True, start: Optional[TraceEvent] = None):
         """
-        Get all loads/stores to byte address.
+        Generate all loads/stores to byte address.
         """
-        if start is None:
-            if forward:
-                h = self._ntm.get_first_event()
+        e = start
+        while True:
+            e = self.get_next_memory_event_in_direction(addr, len_, store, forward, e)
+            if e is None:
+                break
             else:
-                h = self._ntm.get_last_event()
-        else:
-            h = self._get_next_event_handle_in_direction(start.handle, forward)
-
-        h = self._ntm.filter_memory(h, addr, len_, store, forward)
-        while not self._ntm.event_handle_invalid(h):
-            yield self._handle_to_event(h)
-            h = self._get_next_event_handle_in_direction(h, forward)
-            h = self._ntm.filter_memory(h, addr, len_, store, forward)
+                yield e
 
     def filter_image_map(self):
         h = self._ntm.filter_type(self._ntm.get_first_event(), FBEventUnion.imageMapEvent, True)
