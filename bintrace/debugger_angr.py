@@ -106,6 +106,18 @@ class AngrTraceDebugger(TraceDebugger):
             _l.error('Not at a valid position to create simstate, returning blank state')
             return self.project.factory.blank_state()
 
+        #
+        # Trace events come in an order like:
+        # [Block]
+        #   [Instruction]
+        #      [Load/Store] for the previous instruction
+        #      [Syscall] invoked by the previous instruction
+        #   [Instruction]
+        #   [Instruction]
+        # ...
+        #
+        # Replay from last block event up to, but not including last exec event.
+
         bb = self._tm.get_prev_bb_event(self.state.event)
         _l.info('Rewind to last BB event %s', bb)
         state = self.state.snapshot()
@@ -113,7 +125,6 @@ class AngrTraceDebugger(TraceDebugger):
 
         load_events = {}
         syscall_events = {}
-        last_insn = None
 
         def range_events(start, until):
             ev = start
@@ -121,7 +132,13 @@ class AngrTraceDebugger(TraceDebugger):
                 yield ev
                 ev = self._tm.get_next_event(ev)
 
-        for event in range_events(bb, self.state.event):
+        if isinstance(self.state.event, InsnEvent):
+            stop_event = self.state.event
+        else:
+            stop_event = self._tm.get_prev_exec_event(self.state.event)
+
+        last_insn = None
+        for event in range_events(bb, stop_event):
             _l.info(event)
             if isinstance(event, InsnEvent):
                 last_insn = event.Addr()
@@ -155,8 +172,8 @@ class AngrTraceDebugger(TraceDebugger):
         simstate.regs.cc_dep2 = 0
         simstate.regs.cc_ndep = 0
 
-        insns = [e for e in range_events(bb, self.state.event) if isinstance(e, InsnEvent)]
-        if len(insns) == 0:
+        insns = [e for e in range_events(bb, stop_event) if isinstance(e, InsnEvent)]
+        if len(insns) < 1:
             return simstate
 
         # Gather all loads executed by each instruction, and write them just in
@@ -190,7 +207,7 @@ class AngrTraceDebugger(TraceDebugger):
 
         # XXX: We are executing w/ Vex engine, but it might as well be Unicorn.
         #      It's typically only a handful of instructions.
-        _l.info('Executing at %s, up to %s', simstate.regs.pc, self.state.event)
+        _l.info('Executing at %s, up to %s', simstate.regs.pc, stop_event)
         sim_successors = InspectEngine(None).process(simstate, irsb=irsb)
         if len(sim_successors.successors) != 1:
             _l.warning('!!! Unexpected number of successors: %d (%d total)',
