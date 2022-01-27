@@ -5,7 +5,7 @@ import os.path
 import re
 
 from bintrace import Trace, ImageMapEvent, InsnEvent
-from bintrace.debugger import TraceDebugger
+from bintrace.debugger import TraceDebugger, Breakpoint, BreakpointType
 from bintrace.debugger_angr import AngrTraceDebugger
 
 logging.basicConfig(level=logging.DEBUG)
@@ -41,11 +41,11 @@ class TraceTest(unittest.TestCase):
     def test_filter_exec_addr(self):
         self.assertEqual(len(list(self.tm.filter_exec_addr(self.syms['loop_bottom']))), 10)
 
-    def test_filter_store(self):
+    def test_filter_memory(self):
         addr = self.syms['global_value']
         values = []
         state = None
-        for ev in self.tm.filter_store(addr):
+        for ev in self.tm.filter_memory(addr, 4, store=True):
             next_exec_ev = self.tm.get_next_exec_event(ev)
             state = self.tm.replay(state, next_exec_ev)
             values.append(state.get_int(addr, 4))
@@ -57,7 +57,7 @@ class TraceTest(unittest.TestCase):
 
     def test_breakpoint(self):
         d = TraceDebugger(self.tm)
-        d.add_breakpoint(self.syms['loop_bottom'])
+        d.breakpoints.add(Breakpoint(BreakpointType.Execute, self.syms['loop_bottom']))
         values = []
         d.continue_forward()
         while not self.tm.is_at_end(d.state):
@@ -68,7 +68,7 @@ class TraceTest(unittest.TestCase):
     def test_breakpoint_reverse(self):
         d = TraceDebugger(self.tm)
         d.continue_forward()
-        d.add_breakpoint(self.syms['loop_bottom'])
+        d.breakpoints.add(Breakpoint(BreakpointType.Execute, self.syms['loop_bottom']))
         values = []
         d.continue_backward()
         while not self.tm.is_at_start(d.state):
@@ -83,7 +83,7 @@ class TraceTest(unittest.TestCase):
     def test_angr_libc_call_recovery(self):
         d = AngrTraceDebugger(self.tm)
         expected_addr = None
-        for sev in self.tm.filter_store(self.syms['global_value']):
+        for sev in self.tm.filter_memory(self.syms['global_value'], 4, store=True):
             # Step back through trace to last instruction executed within text segment of target binary
             mo = d.project.loader.main_object.sections_map['.text']
             e = None
@@ -117,7 +117,7 @@ class TraceTest(unittest.TestCase):
     def test_angr_breakpoint_and_load_global_value_from_simstate(self):
         d = AngrTraceDebugger(self.tm)
         values = []
-        d.add_breakpoint(self.syms['loop_bottom'])
+        d.breakpoints.add(Breakpoint(BreakpointType.Execute, self.syms['loop_bottom']))
         d.continue_forward()
         while not self.tm.is_at_end(d.state):
             ss = d.simstate

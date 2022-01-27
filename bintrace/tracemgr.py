@@ -246,19 +246,29 @@ class Trace:
             yield self._handle_to_event(h)
             h = self._ntm.filter_exec_addr(self._ntm.get_next_event(h), addr, True)
 
-    def filter_store(self, addr: int, after: Optional[TraceEvent] = None):
-        """
-        Get all stores to byte address.
-        """
-        if after is None:
-            h = self._ntm.get_first_event()
+    def _get_next_event_handle_in_direction(self, handle: EventHandle, forward: bool) -> EventHandle:
+        if forward:
+            return self._ntm.get_next_event(handle)
         else:
-            h = self._ntm.get_next_event(after.handle)
+            return self._ntm.get_prev_event(handle)
 
-        h = self._ntm.filter_memory(h, addr, 1, True, True)
+    def filter_memory(self, addr: int, len_: int, store: bool, forward: bool = True, start: Optional[TraceEvent] = None):
+        """
+        Get all loads/stores to byte address.
+        """
+        if start is None:
+            if forward:
+                h = self._ntm.get_first_event()
+            else:
+                h = self._ntm.get_last_event()
+        else:
+            h = self._get_next_event_handle_in_direction(start.handle, forward)
+
+        h = self._ntm.filter_memory(h, addr, len_, store, forward)
         while not self._ntm.event_handle_invalid(h):
             yield self._handle_to_event(h)
-            h = self._ntm.filter_memory(self._ntm.get_next_event(h), addr, 1, True, True)
+            h = self._get_next_event_handle_in_direction(h, forward)
+            h = self._ntm.filter_memory(h, addr, len_, store, forward)
 
     def filter_image_map(self):
         h = self._ntm.filter_type(self._ntm.get_first_event(), FBEventUnion.imageMapEvent, True)

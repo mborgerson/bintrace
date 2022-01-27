@@ -1,9 +1,37 @@
 from typing import Optional, Set
+from enum import Enum
 import logging
 
 from .tracemgr import Trace, MemoryState, TraceEvent
 
+
 _l = logging.getLogger(name=__name__)
+
+
+class BreakpointType(Enum):
+    """
+    Type of breakpoint.
+    """
+
+    Execute = 1
+    Read = 2
+    Write = 4
+
+
+class Breakpoint:
+    """
+    A breakpoint / watchpoint.
+    """
+
+    __slots__ = (
+        'type', 'addr', 'length', 'comment'
+    )
+
+    def __init__(self, type_: BreakpointType, addr: int, length: int = 1, comment: str = ''):
+        self.type: BreakpointType = type_
+        self.addr: int = addr
+        self.length: int = length
+        self.comment: str = comment
 
 
 class TraceDebugger:
@@ -14,19 +42,7 @@ class TraceDebugger:
     def __init__(self, tm: Trace):
         self._tm: Trace = tm
         self.state: MemoryState = None
-        self.breakpoints: Set[int] = set()
-
-    def add_breakpoint(self, addr: int):
-        """
-        Add a new breakpoint.
-        """
-        self.breakpoints.add(addr)
-
-    def remove_breakpoint(self, addr: int):
-        """
-        Remove a breakpoint.
-        """
-        self.breakpoints.remove(addr)
+        self.breakpoints: Set[Breakpoint] = set()
 
     def _get_prev_stop_event(self) -> Optional[TraceEvent]:
         """
@@ -35,8 +51,11 @@ class TraceDebugger:
         if self.state is None:
             return None
         stop_events = set()
-        for addr in self.breakpoints:
-            e = self._tm.get_prev_exec_event(self.state.event, addr)
+        for bp in self.breakpoints:
+            if bp.type == BreakpointType.Execute:
+                e = self._tm.get_prev_exec_event(self.state.event, bp.addr)
+            # elif bp.type == BreakpointType.Read:
+            #     e = self._tm.get_prev_
             if e is not None:
                 stop_events.add(e)
         if len(stop_events) > 0:
@@ -48,8 +67,9 @@ class TraceDebugger:
         Get next event that should cause execution to stop (e.g. breakpoints).
         """
         stop_events = set()
-        for addr in self.breakpoints:
-            e = self._tm.get_next_exec_event(self.state.event if self.state else None, addr)
+        for bp in self.breakpoints:
+            if bp.type == BreakpointType.Execute:
+                e = self._tm.get_next_exec_event(self.state.event if self.state else None, bp.addr)
             if e is not None:
                 stop_events.add(e)
         if len(stop_events) > 0:

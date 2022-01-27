@@ -184,12 +184,6 @@ class AngrTraceDebugger(TraceDebugger):
             _l.info(' - %s', insn)
             insn_data += bytes(insn.Bytes(i) for i in range(insn.BytesLength()))
 
-        print(f'Byte String: {insn_data}')
-
-        b = self.project.factory.block(bb.Addr(), byte_string=insn_data)
-        print(b)
-        b.capstone.pp()
-
         _l.info('Lifting Block:')
         irsb = pyvex.IRSB(insn_data, bb.Addr(), self.project.arch, opt_level=0)
         _l.info('%s', irsb)
