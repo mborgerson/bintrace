@@ -7,7 +7,7 @@ bintrace
   * Only intended to be run on Linux, for now. API likely to change.
 
 ```bash
-sudo apt install capnproto libcapnp-dev ninja-build
+sudo apt install ninja-build ccache flatbuffers-compiler libflatbuffers-dev
 git clone https://github.com/mborgerson/bintrace
 cd bintrace
 pip install .                      # install bintrace, for trace analysis
