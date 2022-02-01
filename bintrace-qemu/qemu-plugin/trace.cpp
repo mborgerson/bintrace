@@ -39,7 +39,7 @@ extern "C" {
 QEMU_PLUGIN_EXPORT int qemu_plugin_version = QEMU_PLUGIN_VERSION;
 
 static void vcpu_user_write(qemu_plugin_id_t id, unsigned int vcpu_idx,
-                            uint64_t vaddr, void *data, size_t len);
+                            uint64_t vaddr, void *data, size_t size);
 static void vcpu_syscall(qemu_plugin_id_t id, unsigned int vcpu_index,
                          int64_t num, uint64_t a1, uint64_t a2, uint64_t a3,
                          uint64_t a4, uint64_t a5, uint64_t a6, uint64_t a7,
@@ -50,16 +50,16 @@ static void vcpu_insn_exec(unsigned int cpu_index, void *udata);
 static void vcpu_tb_exec(unsigned int cpu_index, void *udata);
 static void vcpu_tb_trans(qemu_plugin_id_t id, struct qemu_plugin_tb *tb);
 static void plugin_exit(qemu_plugin_id_t id, void *p);
-static void image_map_cb(qemu_plugin_id_t id, const char *image_name, uint64_t offset, uint64_t base, uint64_t len);
+static void image_map_cb(qemu_plugin_id_t id, const char *image_name, uint64_t offset, uint64_t base, uint64_t size);
 };
 
 static void vcpu_user_write(qemu_plugin_id_t id, unsigned int vcpu_idx,
-                            uint64_t vaddr, void *data, size_t len)
+                            uint64_t vaddr, void *data, size_t size)
 {
     uint8_t *bytes = (uint8_t*)data;
 
     flatbuffers::FlatBufferBuilder builder(1024);
-    auto ev_data = builder.CreateVector(bytes, len);
+    auto ev_data = builder.CreateVector(bytes, size);
     MemoryEventBuilder ev(builder);
     ev.add_vcpu(vcpu_idx);
     ev.add_addr(vaddr);
@@ -116,7 +116,7 @@ static void vcpu_mem(unsigned int vcpu_idx, qemu_plugin_meminfo_t info,
 struct insn_info {
     uint64_t       vaddr;
     const char    *mnem;
-    size_t         len;
+    size_t         size;
     const uint8_t *bytes;
 };
 
@@ -129,7 +129,7 @@ static void vcpu_insn_exec(unsigned int vcpu_idx, void *udata)
         CreateEvent(builder, EventUnion_insnEvent,
             CreateInsnEvent(builder,
                 vcpu_idx, info->vaddr,
-                builder.CreateVector(info->bytes, info->len),
+                builder.CreateVector(info->bytes, info->size),
                 builder.CreateString(info->mnem)).Union()));
     output_message(builder.GetBufferPointer(), builder.GetSize());
 }
@@ -169,10 +169,10 @@ static void vcpu_tb_trans(qemu_plugin_id_t id, struct qemu_plugin_tb *tb)
         assert(info);
         info->vaddr = qemu_plugin_insn_vaddr(insn);
         info->mnem = qemu_plugin_insn_disas(insn);
-        info->len = qemu_plugin_insn_size(insn);
-        uint8_t *bytes = (uint8_t *)malloc(info->len);
+        info->size = qemu_plugin_insn_size(insn);
+        uint8_t *bytes = (uint8_t *)malloc(info->size);
         assert(bytes);
-        memcpy(bytes, qemu_plugin_insn_data(insn), info->len);
+        memcpy(bytes, qemu_plugin_insn_data(insn), info->size);
         info->bytes = bytes;
 
         /* Register callback on memory read or write */
@@ -195,14 +195,14 @@ static void plugin_exit(qemu_plugin_id_t id, void *p)
 {
 }
 
-static void image_map_cb(qemu_plugin_id_t id, const char *image_name, uint64_t offset, uint64_t base, uint64_t len)
+static void image_map_cb(qemu_plugin_id_t id, const char *image_name, uint64_t offset, uint64_t base, uint64_t size)
 {
     flatbuffers::FlatBufferBuilder builder(1024);
     builder.Finish(
         CreateEvent(builder, EventUnion_imageMapEvent,
             CreateImageMapEvent(builder,
                 builder.CreateString(image_name),
-                offset, base, len).Union()));
+                offset, base, size).Union()));
     output_message(builder.GetBufferPointer(), builder.GetSize());
 }
 

@@ -143,14 +143,14 @@ public:
         }, forward);
     }
 
-    EventHandle filter_memory(EventHandle start, uint64_t addr, uint64_t len, bool store, bool forward) {
+    EventHandle filter_memory(EventHandle start, uint64_t addr, uint64_t size, bool store, bool forward) {
         return filter(start, [=](EventHandle h) {
             auto ev = handle_to_event(h)->event_as_memoryEvent();
             if (ev == nullptr || store != ev->isStore()) return false;
             uint64_t event_addr = ev->addr();
             uint64_t event_sz = ev->data() ? ev->data()->size() : 1 << ev->size();
             uint64_t event_end = event_addr + event_sz; /* XXX: Wrap */
-            uint64_t end = addr + len;
+            uint64_t end = addr + size;
             bool intersect = !(event_addr >= end || addr >= event_end);
             return intersect;
         }, forward);

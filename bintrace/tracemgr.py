@@ -39,7 +39,7 @@ class ImageMapEvent(TraceEvent, FBImageMapEvent):
     """
 
     def __repr__(self):
-        return f'<ImageMap name="{self.Name()}" offset={self.Offset():#x} base={self.Base():#x} size={self.Len():#x}>'
+        return f'<ImageMap name="{self.Name()}" offset={self.Offset():#x} base={self.Base():#x} size={self.Size():#x}>'
 
 
 class BlockEvent(TraceEvent, FBBlockEvent):

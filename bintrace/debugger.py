@@ -24,13 +24,13 @@ class Breakpoint:
     """
 
     __slots__ = (
-        'type', 'addr', 'length', 'comment'
+        'type', 'addr', 'size', 'comment'
     )
 
-    def __init__(self, type_: BreakpointType, addr: int, length: int = 1):
+    def __init__(self, type_: BreakpointType, addr: int, size: int = 1):
         self.type: BreakpointType = type_
         self.addr: int = addr
-        self.length: int = length
+        self.size: int = size
 
 
 class TraceDebugger:
@@ -54,10 +54,10 @@ class TraceDebugger:
                     e = self._tm.get_prev_exec_event(start, bp.addr)
             elif bp.type == BreakpointType.Read:
                 e = self._tm.get_next_memory_event_in_direction(
-                    bp.addr, bp.length, store=False, forward=forward, start=start)
+                    bp.addr, bp.size, store=False, forward=forward, start=start)
             elif bp.type == BreakpointType.Write:
                 e = self._tm.get_next_memory_event_in_direction(
-                    bp.addr, bp.length, store=True, forward=forward, start=start)
+                    bp.addr, bp.size, store=True, forward=forward, start=start)
             else:
                 assert False, 'Unsupported breakpoint type'
 

@@ -2,7 +2,7 @@ table ImageMapEvent {
   name: string;
   offset: uint64;
   base: uint64;
-  len: uint64;
+  size: uint64;
 }
 
 table BlockEvent {
