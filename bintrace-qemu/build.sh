@@ -14,7 +14,7 @@ if [ ! -d $QEMU_DIR ]; then
 	git reset --hard $TAG
 
 	echo "[*] Applying patches"
-	git am $PATCH_DIR/*.patch
+	EMAIL=$(whoami)@localhost git am $PATCH_DIR/*.patch
 
 	echo "[*] Configuring QEMU..."
 	./configure --target-list=x86_64-linux-user --enable-plugins
