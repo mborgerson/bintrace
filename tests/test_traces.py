@@ -99,6 +99,24 @@ class TraceTest(unittest.TestCase):
             d.continue_backward()
         self.assertEqual(values, list(range(109,99,-1)))
 
+    def test_forking(self):
+        prog = 'forking_prog'
+        prog_src = f'{prog}.c'
+        subprocess.run(f'gcc -o {prog} {prog_src}'.split(), check=True)
+        subprocess.run(f'bintrace-qemu ./{prog} > /dev/null', shell=True)
+
+        tm = Trace()
+        tm.load_trace(f'{prog}.trace')
+        syms = get_symbols(f'{prog}', next(tm.filter_image_map()).Base())
+        pids = [e.Value() for e in tm.filter_memory(syms['child_pid'], 4, store=True)]
+        assert len(pids) == 5
+        for i, pid in enumerate(pids):
+            tm = Trace()
+            tm.load_trace(f'{prog}.trace.{pid}.trace')
+            self.assertEqual(len(list(tm.filter_exec_addr(syms['child_path']))), 1)
+            child_pid = [e.Value() for e in tm.filter_memory(syms['child_pid'], 4, store=True)]
+            assert len(child_pid) == (i + 1)
+            assert child_pid[-1] == pid
 
     #
     # Test angr Trace Debugger
@@ -148,6 +166,7 @@ class TraceTest(unittest.TestCase):
             values.append(ss.solver.eval(ss.memory.load(self.syms["global_value"], 4, endness='Iend_LE')))
             d.continue_forward()
         self.assertEqual(values, list(range(100, 110)))
+
 
 if __name__ == '__main__':
   unittest.main()
