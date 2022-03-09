@@ -6,8 +6,11 @@
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <sys/file.h>
+#include <sys/sendfile.h>
 #include <unistd.h>
 #include <assert.h>
+#include <pthread.h>
 
 #include "flatbuffers/flatbuffers.h"
 #include "trace_generated.h"
@@ -195,6 +198,64 @@ static void plugin_exit(qemu_plugin_id_t id, void *p)
 {
 }
 
+char *out_path;
+int sync_fds[2];
+
+static void fork_prepare_handler(void)
+{
+    if (out_path) {
+        assert(!pipe(sync_fds));
+    }
+}
+
+static void fork_parent_handler(void)
+{
+    if (out_path) {
+        /* Wait for child to finish reading the trace into the new trace file */
+        char buf;
+        assert(!close(sync_fds[1]));
+        assert(read(sync_fds[0], &buf, 1) == 1);
+        assert(!close(sync_fds[0]));
+        fprintf(stderr, "Parent continuing!\n");
+    }
+}
+
+static void fork_child_handler(void)
+{
+    if (out_path) {
+        /* Start a new trace from a copy of parent's trace file.
+         *
+         * FIXME: We don't need to take up so much space on disk. In the future,
+         * replace this with intelligence in trace playback to seek between
+         * trace files.
+         */
+        char *path = g_strdup_printf("%s.%d.trace", out_path, getpid());
+        int fd = open(path, O_RDWR | O_CREAT | O_TRUNC, 0666);
+        if (fd < 0) {
+            fprintf(stderr, "Failed to open file '%s' for trace writing\n", path);
+            exit(1);
+        }
+        free(path);
+
+        off_t bytes_copied = 0;
+        off_t bytes_to_copy = lseek(out_fd, 0, SEEK_END);
+        assert(bytes_to_copy >= 0);
+        lseek(out_fd, 0, SEEK_SET);
+        while (bytes_copied < bytes_to_copy) {
+            off_t c = sendfile(fd, out_fd, NULL, bytes_to_copy - bytes_copied);
+            assert(c >= 0);
+            bytes_copied += c;
+        }
+
+        char buf = 0;
+        assert(!close(sync_fds[0]));
+        assert(write(sync_fds[1], &buf, 1) == 1);
+        close(sync_fds[1]);
+        assert(close(out_fd) == 0);
+        out_fd = fd;
+    }
+}
+
 static void image_map_cb(qemu_plugin_id_t id, const char *image_name, uint64_t offset, uint64_t base, uint64_t size)
 {
     flatbuffers::FlatBufferBuilder builder(1024);
@@ -211,14 +272,18 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
                                            char **argv)
 {
     if (argc > 0) {
-        char *out_path = argv[0];
-        int fd = open(out_path, O_WRONLY | O_CREAT | O_TRUNC, 0666);
+        out_path = strdup(argv[0]);
+        int fd = open(out_path, O_RDWR | O_CREAT | O_TRUNC, 0666);
         if (fd < 0) {
             fprintf(stderr, "Failed to open file '%s' for trace writing\n", out_path);
             exit(1);
         }
         out_fd = fd;
     }
+
+    pthread_atfork(fork_prepare_handler,
+                   fork_parent_handler,
+                   fork_child_handler);
 
     qemu_plugin_register_image_map_cb(id, image_map_cb);
     qemu_plugin_register_vcpu_user_write_cb(id, vcpu_user_write);
