@@ -216,7 +216,6 @@ static void fork_parent_handler(void)
         assert(!close(sync_fds[1]));
         assert(read(sync_fds[0], &buf, 1) == 1);
         assert(!close(sync_fds[0]));
-        fprintf(stderr, "Parent continuing!\n");
     }
 }
 
