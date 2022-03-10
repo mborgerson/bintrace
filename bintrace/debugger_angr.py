@@ -13,6 +13,7 @@ from .tracemgr import Trace, InsnEvent, MemoryEvent, SyscallRetEvent
 from .debugger import TraceDebugger
 
 _l = logging.getLogger(name=__name__)
+_l.setLevel(logging.INFO)
 
 
 # FIXME: Tests for syscall. Needs engine fixes for proper support.
@@ -118,7 +119,7 @@ class AngrTraceDebugger(TraceDebugger):
         #
         # Replay from last block event up to, but not including last exec event.
 
-        bb = self._tm.get_prev_bb_event(self.state.event)
+        bb = self._tm.get_prev_bb_event(self.state.event, vcpu=self.vcpu)
         _l.info('Rewind to last BB event %s', bb)
         state = self.state.snapshot()
         state = self._tm.replay(state, bb)
@@ -135,17 +136,19 @@ class AngrTraceDebugger(TraceDebugger):
         if isinstance(self.state.event, InsnEvent):
             stop_event = self.state.event
         else:
-            stop_event = self._tm.get_prev_exec_event(self.state.event)
+            stop_event = self._tm.get_prev_exec_event(self.state.event, vcpu=self.vcpu)
 
         last_insn = None
         for event in range_events(bb, stop_event):
-            _l.info(event)
-            if isinstance(event, InsnEvent):
+            if isinstance(event, InsnEvent) and event.Vcpu() == self.vcpu:
+                _l.info(event)
                 last_insn = event.Addr()
                 load_events[last_insn] = []
-            elif isinstance(event, MemoryEvent) and not event.IsStore():
+            elif isinstance(event, MemoryEvent) and (not event.IsStore()) and event.Vcpu() == self.vcpu:
+                _l.info(event)
                 load_events[last_insn].append(event)
-            elif isinstance(event, SyscallRetEvent):
+            elif isinstance(event, SyscallRetEvent) and event.Vcpu() == self.vcpu:
+                _l.info(event)
                 syscall_events[last_insn] = event
 
         # Slow memory store to state
@@ -172,7 +175,7 @@ class AngrTraceDebugger(TraceDebugger):
         simstate.regs.cc_dep2 = 0
         simstate.regs.cc_ndep = 0
 
-        insns = [e for e in range_events(bb, stop_event) if isinstance(e, InsnEvent)]
+        insns = [e for e in range_events(bb, stop_event) if (isinstance(e, InsnEvent) and e.Vcpu() == self.vcpu)]
         if len(insns) < 1:
             return simstate
 
@@ -180,8 +183,8 @@ class AngrTraceDebugger(TraceDebugger):
         # time to state memory before executing the instruction.
         def before_insn_exec(state):
             _l.info('Executing @ %s', state.regs.pc)
-            for event in load_events[state.solver.eval(state.regs.pc)]:
-                _l.info('   -> %s', event)
+            pc = state.solver.eval(state.regs.pc)
+            for event in load_events[pc]:
                 state.memory.store(event.Addr(), event.Value(), size=(1 << event.Size()),
                                    endness=state.arch.memory_endness)
 

@@ -16,6 +16,7 @@
 #include "trace_generated.h"
 
 static int out_fd = 2;
+pthread_mutex_t out_fd_lock = PTHREAD_MUTEX_INITIALIZER; /* XXX: Replace with spinlock on MMAP'd trace file */
 
 /* XXX: We write the size of the message to the start and end to simplify seeking. Size is assumed to be <4G, however
  * some write events could go over this limit.
@@ -33,7 +34,9 @@ static void output_message(const uint8_t *buf, size_t size)
     uint32_t *s_tail = (uint32_t*)&tbuf[tsize-4];
     *s_tail = (uint32_t)size;
 
+    pthread_mutex_lock(&out_fd_lock);
     ssize_t r = write(out_fd, tbuf, tsize);
+    pthread_mutex_unlock(&out_fd_lock);
     assert(r == tsize);
 }
 
@@ -205,6 +208,7 @@ static void fork_prepare_handler(void)
 {
     if (out_path) {
         assert(!pipe(sync_fds));
+        pthread_mutex_lock(&out_fd_lock);
     }
 }
 
@@ -216,6 +220,7 @@ static void fork_parent_handler(void)
         assert(!close(sync_fds[1]));
         assert(read(sync_fds[0], &buf, 1) == 1);
         assert(!close(sync_fds[0]));
+        pthread_mutex_unlock(&out_fd_lock);
     }
 }
 
@@ -252,6 +257,7 @@ static void fork_child_handler(void)
         close(sync_fds[1]);
         assert(close(out_fd) == 0);
         out_fd = fd;
+        pthread_mutex_unlock(&out_fd_lock);
     }
 }
 
