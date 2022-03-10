@@ -4,7 +4,7 @@ import logging
 import os.path
 import re
 
-from bintrace import Trace, ImageMapEvent, InsnEvent
+from bintrace import Trace, ImageMapEvent, InsnEvent, MemoryEvent
 from bintrace.debugger import TraceDebugger, Breakpoint, BreakpointType
 from bintrace.debugger_angr import AngrTraceDebugger
 
@@ -117,6 +117,60 @@ class TraceTest(unittest.TestCase):
             child_pid = [e.Value() for e in tm.filter_memory(syms['child_pid'], 4, store=True)]
             assert len(child_pid) == (i + 1)
             assert child_pid[-1] == pid
+
+    def test_threads(self):
+        prog = 'threaded_prog'
+        prog_src = f'{prog}.c'
+        subprocess.run(f'gcc -o {prog} -pthread {prog_src}'.split(), check=True)
+        subprocess.run(f'bintrace-qemu ./{prog} > /dev/null', shell=True)
+
+        tm = Trace()
+        tm.load_trace(f'{prog}.trace')
+        syms = get_symbols(f'{prog}', next(tm.filter_image_map()).Base())
+        thread_count = 5
+        bp = {
+            Breakpoint(BreakpointType.Execute, syms['create_thread']),
+            Breakpoint(BreakpointType.Execute, syms['thread_routine']),
+            Breakpoint(BreakpointType.Write, syms['thread_mark'], thread_count*4),
+            Breakpoint(BreakpointType.Execute, syms['thread_exit']),
+            Breakpoint(BreakpointType.Execute, syms['wait_for_thread']),
+        }
+
+        def is_stopped_at(d, sym_name):
+            return isinstance(d.state.event, InsnEvent) and d.state.event.Addr() == syms[sym_name]
+
+        # Trace initial thread path
+        d = TraceDebugger(tm, vcpu=0)
+        d.breakpoints = bp
+        for _ in range(thread_count):
+            d.continue_forward()
+            assert is_stopped_at(d, 'create_thread')
+        for _ in range(thread_count):
+            d.continue_forward()
+            assert is_stopped_at(d, 'wait_for_thread')
+        d.continue_forward()
+        assert tm.is_at_end(d.state)
+
+        # Trace each created thread path
+        for thread in range(thread_count):
+            d = TraceDebugger(tm, vcpu=(thread + 1))
+            d.breakpoints = bp
+
+            d.continue_forward()
+            assert is_stopped_at(d, 'thread_routine')
+
+            d.continue_forward()
+            mark_addr = syms['thread_mark'] + thread*4
+            assert isinstance(d.state.event, MemoryEvent) and d.state.event.Addr() == mark_addr
+            d.step_forward()
+            thread_mark = d.state.get_int(mark_addr, 4)
+            assert thread_mark == (100 + thread)
+
+            d.continue_forward()
+            assert is_stopped_at(d, 'thread_exit')
+
+            d.continue_forward()
+            assert tm.is_at_end(d.state)
 
     #
     # Test angr Trace Debugger
