@@ -22,6 +22,7 @@ _l = logging.getLogger(name=__name__)
 
 EventHandle = int
 INVALID_EVENT_HANDLE = EventHandle(0xffffffffffffffff)
+VCPU_ANY = 0xffffffff
 
 
 class TraceEvent:
@@ -212,36 +213,39 @@ class Trace:
             return self.get_next_event(start) if forward else self.get_prev_event(start)
 
     def get_next_exec_event(self, event: Optional[TraceEvent] = None,
-                                  addr: Optional[int] = None) -> Optional[InsnEvent]:
+                                  addr: Optional[int] = None,
+                                  vcpu: int = VCPU_ANY) -> Optional[InsnEvent]:
         """
         Get next execution event.
         """
         start = self._ntm.get_next_event(event.handle) if event else self._ntm.get_first_event()
         if addr is None:
-            h = self._ntm.filter_type(start, FBEventUnion.insnEvent, True)
+            h = self._ntm.filter_type(start, FBEventUnion.insnEvent, True, vcpu)
         else:
-            h = self._ntm.filter_exec_addr(start, addr, True)
+            h = self._ntm.filter_exec_addr(start, addr, True, vcpu)
         return self._handle_to_event(h)
 
-    def get_prev_exec_event(self, event: TraceEvent, addr: Optional[int] = None) -> Optional[InsnEvent]:
+    def get_prev_exec_event(self, event: TraceEvent,
+                                  addr: Optional[int] = None,
+                                  vcpu: int = VCPU_ANY) -> Optional[InsnEvent]:
         """
         Get most recent execution event.
         """
         start = self._ntm.get_prev_event(event.handle) if event else self._ntm.get_last_event()
         if addr is None:
-            h = self._ntm.filter_type(start, FBEventUnion.insnEvent, False)
+            h = self._ntm.filter_type(start, FBEventUnion.insnEvent, False, vcpu)
         else:
-            h = self._ntm.filter_exec_addr(start, addr, False)
+            h = self._ntm.filter_exec_addr(start, addr, False, vcpu)
         return self._handle_to_event(h)
 
-    def get_prev_bb_event(self, event: TraceEvent) -> Optional[BlockEvent]:
+    def get_prev_bb_event(self, event: TraceEvent, vcpu: int = VCPU_ANY) -> Optional[BlockEvent]:
         """
         Get most recent BlockEvent event.
         """
         return self._handle_to_event(
-            self._ntm.filter_type(self._ntm.get_prev_event(event.handle), FBEventUnion.blockEvent, False))
+            self._ntm.filter_type(self._ntm.get_prev_event(event.handle), FBEventUnion.blockEvent, False, vcpu))
 
-    def filter_exec_addr(self, addr: int, after: Optional[TraceEvent] = None):
+    def filter_exec_addr(self, addr: int, after: Optional[TraceEvent] = None, vcpu: int = VCPU_ANY):
         """
         Get all execution events for this instruction.
         """
@@ -250,13 +254,13 @@ class Trace:
         else:
             h = self._ntm.get_next_event(after.handle)
 
-        h = self._ntm.filter_exec_addr(h, addr, True)
+        h = self._ntm.filter_exec_addr(h, addr, True, vcpu)
         while not self._ntm.event_handle_invalid(h):
             yield self._handle_to_event(h)
-            h = self._ntm.filter_exec_addr(self._ntm.get_next_event(h), addr, True)
+            h = self._ntm.filter_exec_addr(self._ntm.get_next_event(h), addr, True, vcpu)
 
     def get_next_memory_event_in_direction(self, addr: int, len_: int, store: bool, forward: bool = True,
-                                           start: Optional[TraceEvent] = None):
+                                           start: Optional[TraceEvent] = None, vcpu: int = VCPU_ANY):
         """
         Get next load/store to an address.
         """
@@ -265,26 +269,26 @@ class Trace:
             return e
         else:
             return self._handle_to_event(
-                self._ntm.filter_memory(e.handle, addr, len_, store, forward)
+                self._ntm.filter_memory(e.handle, addr, len_, store, forward, vcpu)
                 )
 
     def filter_memory(self, addr: int, len_: int, store: bool, forward: bool = True,
-                      start: Optional[TraceEvent] = None):
+                      start: Optional[TraceEvent] = None, vcpu: int = VCPU_ANY):
         """
         Generate all loads/stores to byte address.
         """
         e = start
         while True:
-            e = self.get_next_memory_event_in_direction(addr, len_, store, forward, e)
+            e = self.get_next_memory_event_in_direction(addr, len_, store, forward, e, vcpu)
             if e is None:
                 break
             yield e
 
     def filter_image_map(self):
-        h = self._ntm.filter_type(self._ntm.get_first_event(), FBEventUnion.imageMapEvent, True)
+        h = self._ntm.filter_type(self._ntm.get_first_event(), FBEventUnion.imageMapEvent, True, VCPU_ANY)
         while not self._ntm.event_handle_invalid(h):
             yield self._handle_to_event(h)
-            h = self._ntm.filter_type(self._ntm.get_next_event(h), FBEventUnion.imageMapEvent, True)
+            h = self._ntm.filter_type(self._ntm.get_next_event(h), FBEventUnion.imageMapEvent, True, VCPU_ANY)
 
     def replay(self, state: Optional[MemoryState] = None,
                      until: Optional[TraceEvent] = None) -> MemoryState:

@@ -38,8 +38,9 @@ class TraceDebugger:
     Debugger-like interface for trace playback. Allows setting breakpoints, continuing, etc.
     """
 
-    def __init__(self, tm: Trace):
+    def __init__(self, tm: Trace, vcpu: int = 0):
         self._tm: Trace = tm
+        self.vcpu: int = vcpu
         self.state: MemoryState = None
         self.breakpoints: Set[Breakpoint] = set()
 
@@ -49,15 +50,15 @@ class TraceDebugger:
         for bp in self.breakpoints:
             if bp.type == BreakpointType.Execute:
                 if forward:
-                    e = self._tm.get_next_exec_event(start, bp.addr)
+                    e = self._tm.get_next_exec_event(start, bp.addr, vcpu=self.vcpu)
                 else:
-                    e = self._tm.get_prev_exec_event(start, bp.addr)
+                    e = self._tm.get_prev_exec_event(start, bp.addr, vcpu=self.vcpu)
             elif bp.type == BreakpointType.Read:
                 e = self._tm.get_next_memory_event_in_direction(
-                    bp.addr, bp.size, store=False, forward=forward, start=start)
+                    bp.addr, bp.size, store=False, forward=forward, start=start, vcpu=self.vcpu)
             elif bp.type == BreakpointType.Write:
                 e = self._tm.get_next_memory_event_in_direction(
-                    bp.addr, bp.size, store=True, forward=forward, start=start)
+                    bp.addr, bp.size, store=True, forward=forward, start=start, vcpu=self.vcpu)
             else:
                 assert False, 'Unsupported breakpoint type'
 
@@ -94,7 +95,7 @@ class TraceDebugger:
         """
         until = self.state.event if self.state else None
         for _ in range(count):
-            until = self._tm.get_next_exec_event(until)
+            until = self._tm.get_next_exec_event(until, vcpu=self.vcpu)
 
         self.state = self._tm.replay(state=self.state, until=until)
 
@@ -108,7 +109,7 @@ class TraceDebugger:
         """
         until = self.state.event if self.state else None
         for _ in range(count):
-            until = self._tm.get_prev_exec_event(until)
+            until = self._tm.get_prev_exec_event(until, vcpu=self.vcpu)
 
         self.state = self._tm.replay(state=self.state, until=until)
 

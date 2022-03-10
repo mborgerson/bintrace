@@ -25,6 +25,7 @@ namespace py = pybind11;
 typedef uintptr_t EventHandle;
 
 const EventHandle invalid_event_handle = (EventHandle)(-1);
+const unsigned int vcpu_any = -1;
 
 struct State {
     size_t ev_count;
@@ -136,17 +137,43 @@ public:
         return invalid_event_handle;
     }
 
-    EventHandle filter_exec_addr(EventHandle start, uint64_t addr, bool forward) {
+    bool event_vcpu_match(EventHandle h, unsigned int vcpu) {
+        if (vcpu == vcpu_any) return true;
+
+        auto ev = handle_to_event(h);
+
+        /* FIXME: Ugly */
+
+        auto ev0 = ev->event_as_blockEvent();
+        if (ev0 != nullptr) return ev0->vcpu() == vcpu;
+
+        auto ev1 = ev->event_as_insnEvent();
+        if (ev1 != nullptr) return ev1->vcpu() == vcpu;
+
+        auto ev2 = ev->event_as_memoryEvent();
+        if (ev2 != nullptr) return ev2->vcpu() == vcpu;
+
+        auto ev3 = ev->event_as_syscallEvent();
+        if (ev3 != nullptr) return ev3->vcpu() == vcpu;
+
+        auto ev4 = ev->event_as_syscallRetEvent();
+        if (ev4 != nullptr) return ev4->vcpu() == vcpu;
+
+        return true;
+    }
+
+    EventHandle filter_exec_addr(EventHandle start, uint64_t addr, bool forward, unsigned int vcpu) {
         return filter(start, [=](EventHandle h) {
             auto ev = handle_to_event(h)->event_as_insnEvent();
-            return ev != nullptr && ev->addr() == addr;
+            return ev != nullptr && ev->addr() == addr && event_vcpu_match(h, vcpu);
         }, forward);
     }
 
-    EventHandle filter_memory(EventHandle start, uint64_t addr, uint64_t size, bool store, bool forward) {
+    EventHandle filter_memory(EventHandle start, uint64_t addr, uint64_t size, bool store, bool forward, unsigned int vcpu) {
         return filter(start, [=](EventHandle h) {
             auto ev = handle_to_event(h)->event_as_memoryEvent();
             if (ev == nullptr || store != ev->isStore()) return false;
+            if (!event_vcpu_match(h, vcpu)) return false;
             uint64_t event_addr = ev->addr();
             uint64_t event_sz = ev->data() ? ev->data()->size() : 1 << ev->size();
             uint64_t event_end = event_addr + event_sz; /* XXX: Wrap */
@@ -156,9 +183,9 @@ public:
         }, forward);
     }
 
-    EventHandle filter_type(EventHandle start, int type, bool forward) {
+    EventHandle filter_type(EventHandle start, int type, bool forward, unsigned int vcpu) {
         return filter(start, [=](EventHandle h) {
-            return handle_to_event(h)->event_type() == type;
+            return handle_to_event(h)->event_type() == type && event_vcpu_match(h, vcpu);
         }, forward);
     }
 
