@@ -15,7 +15,9 @@ from .events import (
     FBMemoryEvent,
     FBBlockEvent,
     FBSyscallEvent,
-    FBSyscallRetEvent
+    FBSyscallRetEvent,
+    FBVcpuInitEvent,
+    FBVcpuExitEvent,
 )
 
 _l = logging.getLogger(name=__name__)
@@ -100,6 +102,24 @@ class SyscallRetEvent(TraceEvent, FBSyscallRetEvent):
         return f'<SyscallRetEvent vcpu={self.Vcpu()} num={self.Num()} ret={self.Ret()}>'
 
 
+class VcpuInitEvent(TraceEvent, FBVcpuInitEvent):
+    """
+    VCPU initialized event.
+    """
+
+    def __repr__(self):
+        return f'<VcpuInitEvent vcpu={self.Vcpu()}>'
+
+
+class VcpuExitEvent(TraceEvent, FBVcpuExitEvent):
+    """
+    VCPU exited event.
+    """
+
+    def __repr__(self):
+        return f'<VcpuExitEvent vcpu={self.Vcpu()}>'
+
+
 class MemoryState:
     """
     Minimal memory model for trace playback.
@@ -168,6 +188,8 @@ class Trace:
             FBEventUnion.memoryEvent: MemoryEvent,
             FBEventUnion.syscallEvent: SyscallEvent,
             FBEventUnion.syscallRetEvent: SyscallRetEvent,
+            FBEventUnion.vcpuInitEvent: VcpuInitEvent,
+            FBEventUnion.vcpuExitEvent: VcpuExitEvent,
         }
 
         ev = FBEvent.GetRootAsEvent(self._mm, handle + 4)

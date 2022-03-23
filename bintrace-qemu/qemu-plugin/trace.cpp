@@ -59,6 +59,24 @@ static void plugin_exit(qemu_plugin_id_t id, void *p);
 static void image_map_cb(qemu_plugin_id_t id, const char *image_name, uint64_t offset, uint64_t base, uint64_t size);
 };
 
+static void vcpu_init(qemu_plugin_id_t id, unsigned int vcpu_idx)
+{
+    flatbuffers::FlatBufferBuilder builder(1024);
+    builder.Finish(
+        CreateEvent(builder, EventUnion_vcpuInitEvent,
+            CreateVcpuInitEvent(builder, vcpu_idx).Union()));
+    output_message(builder.GetBufferPointer(), builder.GetSize());
+}
+
+static void vcpu_exit(qemu_plugin_id_t id, unsigned int vcpu_idx)
+{
+    flatbuffers::FlatBufferBuilder builder(1024);
+    builder.Finish(
+        CreateEvent(builder, EventUnion_vcpuExitEvent,
+            CreateVcpuExitEvent(builder, vcpu_idx).Union()));
+    output_message(builder.GetBufferPointer(), builder.GetSize());
+}
+
 static void vcpu_user_write(qemu_plugin_id_t id, unsigned int vcpu_idx,
                             uint64_t vaddr, void *data, size_t size)
 {
@@ -290,6 +308,8 @@ QEMU_PLUGIN_EXPORT int qemu_plugin_install(qemu_plugin_id_t id,
                    fork_parent_handler,
                    fork_child_handler);
 
+    qemu_plugin_register_vcpu_init_cb(id, vcpu_init);
+    qemu_plugin_register_vcpu_exit_cb(id, vcpu_exit);
     qemu_plugin_register_image_map_cb(id, image_map_cb);
     qemu_plugin_register_vcpu_user_write_cb(id, vcpu_user_write);
     qemu_plugin_register_vcpu_syscall_cb(id, vcpu_syscall);

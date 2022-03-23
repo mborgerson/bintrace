@@ -6,3 +6,5 @@ from .MemoryEvent import MemoryEvent as FBMemoryEvent
 from .BlockEvent import BlockEvent as FBBlockEvent
 from .SyscallEvent import SyscallEvent as FBSyscallEvent
 from .SyscallRetEvent import SyscallRetEvent as FBSyscallRetEvent
+from .VcpuInitEvent import VcpuInitEvent as FBVcpuInitEvent
+from .VcpuExitEvent import VcpuExitEvent as FBVcpuExitEvent

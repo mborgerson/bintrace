@@ -18,6 +18,8 @@ ignore=
     MemoryEvent.py,
     SyscallEvent.py,
     SyscallRetEvent.py,
+    VcpuInitEvent.py,
+    VcpuExitEvent.py,
 
 # Pickle collected data for later comparisons.
 persistent=yes

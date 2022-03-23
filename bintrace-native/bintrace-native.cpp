@@ -159,6 +159,12 @@ public:
         auto ev4 = ev->event_as_syscallRetEvent();
         if (ev4 != nullptr) return ev4->vcpu() == vcpu;
 
+        auto ev5 = ev->event_as_vcpuInitEvent();
+        if (ev5 != nullptr) return ev5->vcpu() == vcpu;
+
+        auto ev6 = ev->event_as_vcpuExitEvent();
+        if (ev6 != nullptr) return ev6->vcpu() == vcpu;
+
         return true;
     }
 
