@@ -1,5 +1,6 @@
 from collections import defaultdict
 from typing import Optional
+from bisect import bisect_left
 import logging
 import os.path
 
@@ -8,12 +9,62 @@ import angr
 from angr.engines import HeavyVEXMixin, SimInspectMixin
 from angr.engines.engine import SuccessorsMixin
 from angr.engines.procedure import ProcedureMixin
+from angr.storage.memory_mixins import FastMemory
 
 from .tracemgr import Trace, InsnEvent, MemoryEvent, SyscallRetEvent
 from .debugger import TraceDebugger
 
+
 _l = logging.getLogger(name=__name__)
-_l.setLevel(logging.INFO)
+
+
+# pylint:disable=abstract-method
+class BintraceMemory(FastMemory):
+    """
+    Memory plugin providing data from recovered trace state.
+    """
+
+    def __init__(self, bintrace_state=None, **kwargs):
+        super().__init__(**kwargs)
+        self._trace = bintrace_state
+        self._ranges = self._trace.get_contiguous_ranges()
+
+    def copy(self, memo):
+        o = super().copy(memo)
+        o._trace = self._trace
+        o._ranges = self._ranges
+        return o
+
+    def _fill(self, addr, size, vargs, kwargs):
+        """
+        Fill from first overlapping range within trace memory state, if available.
+        """
+        start_idx = max(0, bisect_left(self._ranges, (addr,)) - 1)
+
+        for tr_addr, tr_size in self._ranges[start_idx:]:
+            if tr_addr >= (addr + size):
+                break
+            if addr >= (tr_addr + tr_size):
+                continue
+            if tr_addr > addr:
+                return super()._default_value(addr, tr_addr - addr, *vargs, **kwargs)
+            bytes_available = tr_size - (addr - tr_addr)
+            return self.state.solver.BVV(self._trace.get_bytes(addr, min(bytes_available, size)))
+
+        return super()._default_value(addr, size, *vargs, **kwargs)
+
+    def _default_value(self, addr, size, *vargs, **kwargs):
+        """
+        Iteratively fill from contiguous blocks of trace state memory to satisfy the fill request. Use next default
+        filler for gaps.
+        """
+        d, num_bytes_filled = [], 0
+        while num_bytes_filled < size:
+            v = self._fill(addr + num_bytes_filled, size - num_bytes_filled, vargs, kwargs)
+            num_bytes_filled += v.size() // 8
+            d.append(v)
+        bvv = self.state.solver.Concat(*d) if len(d) > 1 else d[0]
+        return bvv if kwargs.get('endness', 'Iend_BE') == 'Iend_BE' else bvv.reversed
 
 
 # FIXME: Tests for syscall. Needs engine fixes for proper support.
@@ -151,10 +202,8 @@ class AngrTraceDebugger(TraceDebugger):
                 _l.info(event)
                 syscall_events[last_insn] = event
 
-        # Slow memory store to state
-        simstate = self.project.factory.blank_state()
-        for addr, size in state.get_contiguous_ranges():
-            simstate.memory.store(addr, state.get_bytes(addr, size))
+        mem = BintraceMemory(bintrace_state=state, memory_id='mem')
+        simstate = angr.SimState(self.project, mode='symbolic', plugins={'memory': mem})
 
         # FIXME: Some registers are not modeled here (e.g. FS), so execution may be incorrect
         #        Need to model rflags
