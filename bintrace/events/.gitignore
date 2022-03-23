@@ -6,3 +6,5 @@ InsnEvent.py
 MemoryEvent.py
 SyscallEvent.py
 SyscallRetEvent.py
+VcpuInitEvent.py
+VcpuExitEvent.py

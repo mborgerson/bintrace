@@ -38,13 +38,23 @@ table SyscallRetEvent {
   ret: uint64;
 }
 
+table VcpuInitEvent {
+  vcpu: uint8;
+}
+
+table VcpuExitEvent {
+  vcpu: uint8;
+}
+
 union EventUnion {
   imageMapEvent: ImageMapEvent,
   blockEvent: BlockEvent,
   insnEvent: InsnEvent,
   memoryEvent: MemoryEvent,
   syscallEvent: SyscallEvent,
-  syscallRetEvent: SyscallRetEvent
+  syscallRetEvent: SyscallRetEvent,
+  vcpuInitEvent: VcpuInitEvent,
+  vcpuExitEvent: VcpuExitEvent
 }
 
 table Event {
