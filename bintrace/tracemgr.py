@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Optional, Sequence, Tuple
 import logging
 import mmap
 import copy
@@ -128,6 +128,7 @@ class MemoryState:
         self._ns: NativeState = native_state
         self.event_count: int = self._ns.ev_count
         self.event: TraceEvent = event  # Event that this state reflects all changes up to, but not including
+        self._ranges: Optional[Sequence[Tuple[int, int]]] = None
         assert event is None or (self.event.handle == self._ns.ev)
 
     def get_bytes(self, addr: int, size: int):
@@ -148,7 +149,7 @@ class MemoryState:
         """
         return MemoryState(copy.copy(self._ns), self.event)
 
-    def get_contiguous_ranges(self):
+    def _gen_contigous_ranges(self):
         """
         Generate the list of contiguous memory ranges in self.mem
         """
@@ -163,6 +164,14 @@ class MemoryState:
                 start, i = k, 1
         if i > 0:
             yield (start, i)
+
+    def get_contiguous_ranges(self):
+        """
+        Generate the list of contiguous memory ranges in self.mem
+        """
+        if self._ranges is None:
+            self._ranges = list(self._gen_contigous_ranges())
+        return self._ranges
 
 
 class Trace:
