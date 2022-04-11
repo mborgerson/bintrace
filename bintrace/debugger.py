@@ -89,11 +89,14 @@ class TraceDebugger:
     def can_step_forward(self) -> bool:
         return self.state is None or not self._tm.is_at_end(self.state)
 
-    def step_forward(self, count=1):
+    def step_forward(self, count=1, until_addr: Optional[int] = None):
         """
         Step forward by 1 machine instruction.
         """
         until = self.state.event if self.state else None
+        if until_addr is not None:
+            until = self._tm.get_next_exec_event(until, addr=until_addr, vcpu=self.vcpu)
+            count -= 1
         for _ in range(count):
             until = self._tm.get_next_exec_event(until, vcpu=self.vcpu)
 
