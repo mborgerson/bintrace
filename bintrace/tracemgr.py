@@ -276,6 +276,14 @@ class Trace:
         return self._handle_to_event(
             self._ntm.filter_type(self._ntm.get_prev_event(event.handle), FBEventUnion.blockEvent, False, vcpu))
 
+    def get_next_bb_event(self, event: Optional[TraceEvent] = None, vcpu: int = VCPU_ANY) -> Optional[BlockEvent]:
+        """
+        Get next BlockEvent event.
+        """
+        start = self._ntm.get_next_event(event.handle) if event else self._ntm.get_first_event()
+        return self._handle_to_event(
+            self._ntm.filter_type(start, FBEventUnion.blockEvent, True, vcpu))
+
     def filter_exec_addr(self, addr: int, after: Optional[TraceEvent] = None, vcpu: int = VCPU_ANY):
         """
         Get all execution events for this instruction.
