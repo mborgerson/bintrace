@@ -28,8 +28,16 @@ jobs:
           export PATH="/usr/lib/ccache:$PATH"
           git config --global user.name 'Tester'
           git config --global user.email 'nobody@nowhere'
-          pip install --verbose .
-          pip install --verbose ./bintrace-qemu
+
+          export WHEELS=~/wheels
+          mkdir -p $WHEELS
+          export PIP_FIND_LINKS=$WHEELS
+
+          pip install build
+          python -m build --outdir $WHEELS
+          python -m build --outdir $WHEELS ./bintrace-qemu
+          pip install bintrace bintrace-qemu
+
           echo -e "\nCompiler Cache Stats:"
           ccache -s -c
       - name: Lint
