@@ -33,10 +33,16 @@ jobs:
           mkdir -p $WHEELS
           export PIP_FIND_LINKS=$WHEELS
 
+          # Build and install from wheel for tests
           pip install build
           python -m build --outdir $WHEELS
           python -m build --outdir $WHEELS ./bintrace-qemu
           pip install bintrace bintrace-qemu
+
+          # Build in-place for pylint. This is done after the isolated build to
+          # prevent artifacts from polluting the dists
+          # python -m build doesn't appear to support in-place build
+          python setup.py build
 
           echo -e "\nCompiler Cache Stats:"
           ccache -s -c
