@@ -4,3 +4,4 @@
 __pycache__
 bintrace_native.*.so
 build/
+dist/
