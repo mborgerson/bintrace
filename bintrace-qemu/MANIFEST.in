@@ -1,0 +1,4 @@
+include build.sh
+include qemu-patches/*.patch
+include qemu-plugin/Makefile
+include qemu-plugin/*.cpp
