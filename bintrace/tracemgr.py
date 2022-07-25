@@ -245,28 +245,30 @@ class Trace:
 
     def get_next_exec_event(self, event: Optional[TraceEvent] = None,
                                   addr: Optional[int] = None,
+                                  size: int = 1,
                                   vcpu: int = VCPU_ANY) -> Optional[InsnEvent]:
         """
-        Get next execution event.
+        Get next execution event in this address range.
         """
         start = self._ntm.get_next_event(event.handle) if event else self._ntm.get_first_event()
         if addr is None:
             h = self._ntm.filter_type(start, FBEventUnion.insnEvent, True, vcpu)
         else:
-            h = self._ntm.filter_exec_addr(start, addr, True, vcpu)
+            h = self._ntm.filter_exec_addr(start, addr, size, True, vcpu)
         return self._handle_to_event(h)
 
     def get_prev_exec_event(self, event: TraceEvent,
                                   addr: Optional[int] = None,
+                                  size: int = 1,
                                   vcpu: int = VCPU_ANY) -> Optional[InsnEvent]:
         """
-        Get most recent execution event.
+        Get most recent execution event in this address range.
         """
         start = self._ntm.get_prev_event(event.handle) if event else self._ntm.get_last_event()
         if addr is None:
             h = self._ntm.filter_type(start, FBEventUnion.insnEvent, False, vcpu)
         else:
-            h = self._ntm.filter_exec_addr(start, addr, False, vcpu)
+            h = self._ntm.filter_exec_addr(start, addr, size, False, vcpu)
         return self._handle_to_event(h)
 
     def get_prev_bb_event(self, event: TraceEvent, vcpu: int = VCPU_ANY) -> Optional[BlockEvent]:
@@ -284,19 +286,19 @@ class Trace:
         return self._handle_to_event(
             self._ntm.filter_type(start, FBEventUnion.blockEvent, True, vcpu))
 
-    def filter_exec_addr(self, addr: int, after: Optional[TraceEvent] = None, vcpu: int = VCPU_ANY):
+    def filter_exec_addr(self, addr: int, size: int = 1, after: Optional[TraceEvent] = None, vcpu: int = VCPU_ANY):
         """
-        Get all execution events for this instruction.
+        Get all execution events for this address range.
         """
         if after is None:
             h = self._ntm.get_first_event()
         else:
             h = self._ntm.get_next_event(after.handle)
 
-        h = self._ntm.filter_exec_addr(h, addr, True, vcpu)
+        h = self._ntm.filter_exec_addr(h, addr, size, True, vcpu)
         while not self._ntm.event_handle_invalid(h):
             yield self._handle_to_event(h)
-            h = self._ntm.filter_exec_addr(self._ntm.get_next_event(h), addr, True, vcpu)
+            h = self._ntm.filter_exec_addr(self._ntm.get_next_event(h), addr, size, True, vcpu)
 
     def get_next_memory_event_in_direction(self, addr: int, len_: int, store: bool, forward: bool = True,
                                            start: Optional[TraceEvent] = None, vcpu: int = VCPU_ANY):

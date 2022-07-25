@@ -143,6 +143,18 @@ class AngrTraceDebugger(TraceDebugger):
 
         self.project: angr.Project = project
 
+        # FIXME: Allow more flexible step ranges
+        step_range_min = self.project.loader.main_object.min_addr
+        step_range_max = self.project.loader.main_object.max_addr
+        for obj in self.project.loader.all_objects:
+            if obj.binary.startswith('cle##'):
+                continue  # FIXME: Add better check
+            if obj.min_addr < step_range_min:
+                step_range_min = obj.min_addr
+            if obj.max_addr > step_range_max:
+                step_range_max = obj.max_addr
+        self.single_step_range = (step_range_min, step_range_max - step_range_min + 1)
+
     @property
     def simstate(self) -> angr.SimState:
         """

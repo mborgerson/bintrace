@@ -1,4 +1,4 @@
-from typing import Optional, Set
+from typing import Optional, Set, Tuple
 from enum import Enum
 import logging
 
@@ -43,6 +43,8 @@ class TraceDebugger:
         self.vcpu: int = vcpu
         self.state: MemoryState = None
         self.breakpoints: Set[Breakpoint] = set()
+        self.single_step_range: Optional[Tuple[int, int]] = None  # If set, (addr, size) of region to step in. Outside
+                                                                  # this range will be stepped through.
 
     def _get_breakpoint_events_in_direction(self, start: Optional[TraceEvent], forward: bool) -> Set[TraceEvent]:
         events = set()
@@ -97,8 +99,15 @@ class TraceDebugger:
         if until_addr is not None:
             until = self._tm.get_next_exec_event(until, addr=until_addr, vcpu=self.vcpu)
             count -= 1
+
+        if self.single_step_range is None:
+            step_region_addr, step_region_size = None, 1
+        else:
+            self.single_step_range: Tuple[int, int]
+            step_region_addr, step_region_size = self.single_step_range
+
         for _ in range(count):
-            until = self._tm.get_next_exec_event(until, vcpu=self.vcpu)
+            until = self._tm.get_next_exec_event(until, addr=step_region_addr, size=step_region_size, vcpu=self.vcpu)
 
         self.state = self._tm.replay(state=self.state, until=until)
 
@@ -111,8 +120,15 @@ class TraceDebugger:
         Step backward by 1 machine instruction.
         """
         until = self.state.event if self.state else None
+
+        if self.single_step_range is None:
+            step_region_addr, step_region_size = None, 1
+        else:
+            self.single_step_range: Tuple[int, int]
+            step_region_addr, step_region_size = self.single_step_range
+
         for _ in range(count):
-            until = self._tm.get_prev_exec_event(until, vcpu=self.vcpu)
+            until = self._tm.get_prev_exec_event(until, addr=step_region_addr, size=step_region_size, vcpu=self.vcpu)
 
         self.state = self._tm.replay(state=self.state, until=until)
 

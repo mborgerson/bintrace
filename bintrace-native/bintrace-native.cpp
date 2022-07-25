@@ -168,10 +168,10 @@ public:
         return true;
     }
 
-    EventHandle filter_exec_addr(EventHandle start, uint64_t addr, bool forward, unsigned int vcpu) {
+    EventHandle filter_exec_addr(EventHandle start, uint64_t addr, uint64_t size, bool forward, unsigned int vcpu) {
         return filter(start, [=](EventHandle h) {
             auto ev = handle_to_event(h)->event_as_insnEvent();
-            return ev != nullptr && ev->addr() == addr && event_vcpu_match(h, vcpu);
+            return ev != nullptr && addr <= ev->addr() && ev->addr() < (addr + size) && event_vcpu_match(h, vcpu);
         }, forward);
     }
 
