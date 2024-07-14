@@ -10,6 +10,8 @@ from bintrace import Trace
 from bintrace.debugger import TraceDebugger
 if angr is not None:
     from bintrace.debugger_angr import AngrTraceDebugger
+else:
+    AngrTraceDebugger = None
 
 try:
     import IPython
