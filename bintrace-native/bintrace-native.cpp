@@ -278,6 +278,15 @@ PYBIND11_MODULE(bintrace_native, m) {
            :toctree: _generate
     )pbdoc";
 
+    py::class_<PagedMemory>(m, "PagedMemory")
+      .def(py::init<uint32_t>())
+      .def("page_size", &PagedMemory::get_page_size)
+      .def("sorted_addresses", &PagedMemory::sorted_addresses)
+      .def("get_contiguous_ranges", &PagedMemory::get_contiguous_ranges)
+      .def("__getitem__", [](const PagedMemory &self, uint64_t addr) { return self.at(addr); })
+      .def("__copy__", [](const PagedMemory &self) { return PagedMemory(self); })
+      ;
+
     py::class_<State>(m, "State")
         .def(py::init<>())
         .def_readonly("ev", &State::ev)
