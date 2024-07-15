@@ -36,7 +36,7 @@ class custom_build_ext(build_ext):
 
 ext_modules = [
     Pybind11Extension("bintrace_native",
-        ["bintrace-native/bintrace-native.cpp"],
+        ["bintrace-native/bintrace-native.cpp", "bintrace-native/paged_mem.cpp"],
         define_macros=[('VERSION_INFO', __version__)],
         include_dirs=get_include_dirs()
         ),

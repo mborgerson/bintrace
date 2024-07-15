@@ -149,28 +149,12 @@ class MemoryState:
         """
         return MemoryState(copy.copy(self._ns), self.event)
 
-    def _gen_contigous_ranges(self):
-        """
-        Generate the list of contiguous memory ranges in self.mem
-        """
-        start, i = None, 0
-        for k in sorted(self._ns.mem):
-            if start is None:
-                start, i = k, 1
-            elif k == (start + i):
-                i += 1
-            else:
-                yield (start, i)
-                start, i = k, 1
-        if i > 0:
-            yield (start, i)
-
     def get_contiguous_ranges(self):
         """
         Generate the list of contiguous memory ranges in self.mem
         """
         if self._ranges is None:
-            self._ranges = list(self._gen_contigous_ranges())
+            self._ranges = self._ns.mem.get_contiguous_ranges()
         return self._ranges
 
 

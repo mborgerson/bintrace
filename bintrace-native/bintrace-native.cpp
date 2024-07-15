@@ -17,6 +17,7 @@
 
 #include "flatbuffers/flatbuffers.h"
 #include "trace_generated.h"
+#include "paged_mem.hpp"
 
 namespace py = pybind11;
 #define STRINGIFY(x) #x
@@ -27,10 +28,25 @@ typedef uintptr_t EventHandle;
 const EventHandle invalid_event_handle = (EventHandle)(-1);
 const unsigned int vcpu_any = -1;
 
-struct State {
-    size_t ev_count;
-    EventHandle ev;
-    std::unordered_map<uint64_t, uint8_t> mem;
+class State
+{
+
+public:
+  State()
+  {
+    ev_count = 0;
+    ev = 0;
+  }
+
+  State(const State & state)
+    : ev_count(state.ev_count), ev(state.ev)
+  {
+    mem = PagedMemory(state.mem);
+  }
+
+  size_t ev_count;
+  PagedMemory mem;
+  EventHandle ev;
 };
 
 class NativeTrace {
@@ -261,6 +277,15 @@ PYBIND11_MODULE(bintrace_native, m) {
         .. autosummary::
            :toctree: _generate
     )pbdoc";
+
+    py::class_<PagedMemory>(m, "PagedMemory")
+      .def(py::init<uint32_t>())
+      .def("page_size", &PagedMemory::get_page_size)
+      .def("sorted_addresses", &PagedMemory::sorted_addresses)
+      .def("get_contiguous_ranges", &PagedMemory::get_contiguous_ranges)
+      .def("__getitem__", [](const PagedMemory &self, uint64_t addr) { return self.at(addr); })
+      .def("__copy__", [](const PagedMemory &self) { return PagedMemory(self); })
+      ;
 
     py::class_<State>(m, "State")
         .def(py::init<>())
