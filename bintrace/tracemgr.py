@@ -7,18 +7,17 @@ from bintrace_native import NativeTrace, State as NativeState  # pylint:disable=
 
 # Following modules are generated at install time by flatc
 # pylint:disable=import-error
-from .events import (
-    FBEvent,
-    FBEventUnion,
-    FBImageMapEvent,
-    FBInsnEvent,
-    FBMemoryEvent,
-    FBBlockEvent,
-    FBSyscallEvent,
-    FBSyscallRetEvent,
-    FBVcpuInitEvent,
-    FBVcpuExitEvent,
-)
+from .events.BlockEvent import BlockEvent as FBBlockEvent
+from .events.Event import Event as FBEvent
+from .events.EventUnion import EventUnion as FBEventUnion
+from .events.ImageMapEvent import ImageMapEvent as FBImageMapEvent
+from .events.InsnEvent import InsnEvent as FBInsnEvent
+from .events.MemoryEvent import MemoryEvent as FBMemoryEvent
+from .events.SyscallEvent import SyscallEvent as FBSyscallEvent
+from .events.SyscallRetEvent import SyscallRetEvent as FBSyscallRetEvent
+from .events.VcpuExitEvent import VcpuExitEvent as FBVcpuExitEvent
+from .events.VcpuInitEvent import VcpuInitEvent as FBVcpuInitEvent
+
 
 _l = logging.getLogger(name=__name__)
 
