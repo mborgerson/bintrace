@@ -6,6 +6,7 @@ import os.path
 
 import pyvex
 import angr
+import claripy
 from angr.engines import HeavyVEXMixin, SimInspectMixin
 from angr.engines.engine import SuccessorsMixin
 from angr.engines.procedure import ProcedureMixin
@@ -49,7 +50,7 @@ class BintraceMemory(FastMemory):
             if tr_addr > addr:
                 return super()._default_value(addr, tr_addr - addr, *vargs, **kwargs)
             bytes_available = tr_size - (addr - tr_addr)
-            return self.state.solver.BVV(self._trace.get_bytes(addr, min(bytes_available, size)))
+            return claripy.BVV(self._trace.get_bytes(addr, min(bytes_available, size)))
 
         return super()._default_value(addr, size, *vargs, **kwargs)
 
@@ -63,7 +64,7 @@ class BintraceMemory(FastMemory):
             v = self._fill(addr + num_bytes_filled, size - num_bytes_filled, vargs, kwargs)
             num_bytes_filled += v.size() // 8
             d.append(v)
-        bvv = self.state.solver.Concat(*d) if len(d) > 1 else d[0]
+        bvv = claripy.Concat(*d) if len(d) > 1 else d[0]
         return bvv if kwargs.get('endness', 'Iend_BE') == 'Iend_BE' else bvv.reversed
 
 
