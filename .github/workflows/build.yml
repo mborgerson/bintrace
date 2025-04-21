@@ -21,7 +21,7 @@ jobs:
           path: /tmp/ccache
           key: cache-${{ github.sha }}
           restore-keys: cache-
-      - name: Install
+      - name: Install bintrace
         run: |
           export CCACHE_DIR=/tmp/ccache
           export CCACHE_MAXSIZE=512M
@@ -39,18 +39,23 @@ jobs:
           python -m build --outdir $WHEELS
           pip install $WHEELS/bintrace-*.whl
 
+      - name: Install bintrace-qemu
+        run: |
+          export WHEELS=~/wheels
+          export PIP_FIND_LINKS=$WHEELS
+
           python -m build --outdir $WHEELS ./bintrace-qemu
           pip install $WHEELS/bintrace_qemu-*.whl
-
-          # Build in-place for pylint. This is done after the isolated build to
-          # prevent artifacts from polluting the dists
-          # python -m build doesn't appear to support in-place build
-          python setup.py build
 
           echo -e "\nCompiler Cache Stats:"
           ccache -s -c
       - name: Lint
         run: |
+          # Build in-place for pylint. This is done after the isolated build to
+          # prevent artifacts from polluting the dists
+          # python -m build doesn't appear to support in-place build
+          python setup.py build
+
           pylint --rcfile=pylintrc ./bintrace
       - name: Test
         run: |
