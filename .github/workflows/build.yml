@@ -35,9 +35,12 @@ jobs:
 
           # Build and install from wheel for tests
           pip install build
+
           python -m build --outdir $WHEELS
+          pip install $WHEELS/bintrace-*.whl
+
           python -m build --outdir $WHEELS ./bintrace-qemu
-          pip install bintrace bintrace-qemu
+          pip install $WHEELS/bintrace_qemu-*.whl
 
           # Build in-place for pylint. This is done after the isolated build to
           # prevent artifacts from polluting the dists
